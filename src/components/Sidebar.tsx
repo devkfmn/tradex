@@ -7,6 +7,7 @@ import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
+  Calculator,
   Settings,
   LogOut,
   TrendingUp,
@@ -22,6 +23,7 @@ const NAV = [
   { to: "/playbook", label: "Playbook", icon: BookOpen },
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/review", label: "Review", icon: ClipboardCheck },
+  { to: "/calculator", label: "Calculator", icon: Calculator },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

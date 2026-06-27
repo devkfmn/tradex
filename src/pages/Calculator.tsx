@@ -1,0 +1,313 @@
+import { useMemo, useState } from "react";
+import { Check, Copy } from "lucide-react";
+import { StatCard } from "../components/ui";
+import { fmtNum, fmtPct, fmtUsd } from "../lib/analytics";
+
+const LEVERAGE_BUFFER = 1.25; // require liquidation 25% farther than the stop
+const MAX_LEVERAGE = 125;
+
+const STORAGE_KEYS = {
+  balance: "tradex.calc.balance",
+  riskPct: "tradex.calc.riskPct",
+};
+
+function usePersistentState(key: string): [string, (v: string) => void] {
+  const [value, setValue] = useState(() => {
+    try {
+      return localStorage.getItem(key) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const update = (v: string) => {
+    setValue(v);
+    try {
+      localStorage.setItem(key, v);
+    } catch {
+      // storage unavailable; ignore
+    }
+  };
+  return [value, update];
+}
+
+function num(v: string): number | null {
+  if (v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+type Calc = {
+  direction: "Long" | "Short";
+  stopDistFrac: number;
+  riskAmount: number;
+  size: number;
+  loss: number;
+  profit: number | null;
+  rFactor: number | null;
+  leverage: number;
+  margin: number;
+  liquidation: number;
+  marginExceedsBalance: boolean;
+  tpWrongSide: boolean;
+};
+
+function compute(
+  balance: number | null,
+  riskPct: number | null,
+  entry: number | null,
+  stop: number | null,
+  target: number | null
+): Calc | null {
+  if (
+    balance == null ||
+    riskPct == null ||
+    entry == null ||
+    stop == null ||
+    balance <= 0 ||
+    riskPct <= 0 ||
+    entry <= 0 ||
+    stop <= 0 ||
+    entry === stop
+  ) {
+    return null;
+  }
+
+  const direction = stop < entry ? "Long" : "Short";
+  const stopDistFrac = Math.abs(entry - stop) / entry;
+  if (!Number.isFinite(stopDistFrac) || stopDistFrac <= 0) return null;
+
+  const riskAmount = balance * (riskPct / 100);
+  const size = riskAmount / stopDistFrac;
+  if (!Number.isFinite(size) || size <= 0) return null;
+
+  const loss = riskAmount;
+
+  let profit: number | null = null;
+  let rFactor: number | null = null;
+  let tpWrongSide = false;
+  if (target != null && target > 0) {
+    const onRightSide =
+      direction === "Long" ? target > entry : target < entry;
+    if (onRightSide) {
+      profit = (size * Math.abs(target - entry)) / entry;
+      rFactor = Math.abs(target - entry) / Math.abs(entry - stop);
+    } else {
+      tpWrongSide = true;
+    }
+  }
+
+  let leverage = Math.floor(1 / (stopDistFrac * LEVERAGE_BUFFER));
+  if (!Number.isFinite(leverage) || leverage < 1) leverage = 1;
+  if (leverage > MAX_LEVERAGE) leverage = MAX_LEVERAGE;
+
+  const margin = size / leverage;
+  const liquidation =
+    direction === "Long"
+      ? entry * (1 - 1 / leverage)
+      : entry * (1 + 1 / leverage);
+
+  return {
+    direction,
+    stopDistFrac,
+    riskAmount,
+    size,
+    loss,
+    profit,
+    rFactor,
+    leverage,
+    margin,
+    liquidation,
+    marginExceedsBalance: margin > balance,
+    tpWrongSide,
+  };
+}
+
+function CopyRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // clipboard unavailable; ignore
+    }
+  };
+  return (
+    <div className="copy-row">
+      <span className="copy-row-label">{label}</span>
+      <span className="copy-row-value mono">{value}</span>
+      <button
+        type="button"
+        className="btn-ghost copy-row-btn"
+        onClick={copy}
+        aria-label={`Copy ${label}`}
+      >
+        {copied ? <Check size={15} /> : <Copy size={15} />}
+      </button>
+    </div>
+  );
+}
+
+export default function Calculator() {
+  const [balance, setBalance] = usePersistentState(STORAGE_KEYS.balance);
+  const [riskPct, setRiskPct] = usePersistentState(STORAGE_KEYS.riskPct);
+  const [entry, setEntry] = useState("");
+  const [stop, setStop] = useState("");
+  const [target, setTarget] = useState("");
+
+  const calc = useMemo(
+    () =>
+      compute(
+        num(balance),
+        num(riskPct),
+        num(entry),
+        num(stop),
+        num(target)
+      ),
+    [balance, riskPct, entry, stop, target]
+  );
+
+  const dash = "—";
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Calculator</h1>
+          <p className="page-subtitle">
+            Size a position from your risk, then copy the order values.
+          </p>
+        </div>
+      </div>
+
+      <div className="card form-section">
+        <div className="section-title">Inputs</div>
+        <div className="form-grid">
+          <div>
+            <label>Account Balance (USDT)</label>
+            <input
+              type="number"
+              step="any"
+              placeholder="1000"
+              value={balance}
+              onChange={(e) => setBalance(e.target.value)}
+            />
+          </div>
+          <div>
+            <label>Risk %</label>
+            <input
+              type="number"
+              step="any"
+              placeholder="1"
+              value={riskPct}
+              onChange={(e) => setRiskPct(e.target.value)}
+            />
+            {calc && (
+              <div className="computed">
+                Risking {fmtUsd(calc.riskAmount)}
+              </div>
+            )}
+          </div>
+          <div>
+            <label>Entry</label>
+            <input
+              type="number"
+              step="any"
+              value={entry}
+              onChange={(e) => setEntry(e.target.value)}
+            />
+          </div>
+          <div>
+            <label>Stop Loss</label>
+            <input
+              type="number"
+              step="any"
+              value={stop}
+              onChange={(e) => setStop(e.target.value)}
+            />
+            {calc && (
+              <div className="computed">
+                {calc.direction} · stop {fmtPct(calc.stopDistFrac)} away
+              </div>
+            )}
+          </div>
+          <div>
+            <label>Take Profit</label>
+            <input
+              type="number"
+              step="any"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+            />
+            {calc?.tpWrongSide && (
+              <div className="computed" style={{ color: "var(--red)" }}>
+                TP is on the wrong side of entry for a {calc.direction}.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="card form-section">
+        <div className="section-title">Read only</div>
+        <div className="stat-grid">
+          <StatCard
+            label="R Factor"
+            value={calc?.rFactor != null ? `${fmtNum(calc.rFactor)}R` : dash}
+            tone={
+              calc?.rFactor != null
+                ? calc.rFactor >= 1
+                  ? "pos"
+                  : "neg"
+                : ""
+            }
+          />
+          <StatCard
+            label="Profit"
+            value={calc?.profit != null ? fmtUsd(calc.profit) : dash}
+            tone={calc?.profit != null ? "pos" : ""}
+          />
+          <StatCard
+            label="Loss"
+            value={calc ? fmtUsd(-calc.loss) : dash}
+            tone={calc ? "neg" : ""}
+          />
+          <StatCard
+            label="Liquidation Price"
+            value={calc ? fmtNum(calc.liquidation) : dash}
+          />
+          <StatCard
+            label="Margin used"
+            value={calc ? fmtUsd(calc.margin) : dash}
+            sub={
+              calc?.marginExceedsBalance ? (
+                <span className="neg">Exceeds balance</span>
+              ) : undefined
+            }
+          />
+        </div>
+      </div>
+
+      <div className="card form-section">
+        <div className="section-title">Order</div>
+        {calc ? (
+          <div className="copy-list">
+            <CopyRow label="Leverage" value={`${calc.leverage}x`} />
+            <CopyRow label="Entry" value={fmtNum(num(entry) ?? 0)} />
+            <CopyRow label="Size (USDT)" value={fmtNum(calc.size)} />
+            <CopyRow label="Stop Loss" value={fmtNum(num(stop) ?? 0)} />
+            <CopyRow
+              label="Take Profit"
+              value={num(target) != null ? fmtNum(num(target) as number) : dash}
+            />
+          </div>
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            Enter balance, risk %, entry, and stop loss to see your order.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
