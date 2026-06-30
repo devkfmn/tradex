@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { addReview, deleteReview } from "../services/reviews";
-import { computeStats, fmtPct, fmtR, groupStats } from "../lib/analytics";
+import { computeStats, fmtPct, fmtR, fmtUsd, groupStats } from "../lib/analytics";
 import { StatCard, ConfirmDialog, EmptyState } from "../components/ui";
 import type { Review as ReviewType, ReviewInput, RuleFollowed } from "../types";
 
@@ -113,9 +113,16 @@ export default function Review() {
 
         <div className="stat-grid" style={{ marginBottom: 20 }}>
           <StatCard
-            label="Week Net R"
-            value={fmtR(weekStats.netR)}
-            tone={weekStats.netR > 0 ? "pos" : weekStats.netR < 0 ? "neg" : ""}
+            label={weekStats.hasPnl ? "Week Net P&L" : "Week Net R"}
+            value={weekStats.hasPnl ? fmtUsd(weekStats.netPnl) : fmtR(weekStats.netR)}
+            sub={weekStats.hasPnl ? `${fmtR(weekStats.netR)} net` : undefined}
+            tone={
+              (weekStats.hasPnl ? weekStats.netPnl : weekStats.netR) > 0
+                ? "pos"
+                : (weekStats.hasPnl ? weekStats.netPnl : weekStats.netR) < 0
+                ? "neg"
+                : ""
+            }
           />
           <StatCard label="Trades" value={weekStats.count} />
           <StatCard label="Win rate" value={fmtPct(weekStats.winRate)} />

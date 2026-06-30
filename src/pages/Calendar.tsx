@@ -14,14 +14,16 @@ import {
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useData } from "../context/DataContext";
-import { resultFromR, signClass } from "../lib/analytics";
+import { fmtUsd, resultFromR, signClass } from "../lib/analytics";
 import { ResultBadge, RCell } from "../components/ui";
 import type { Trade } from "../types";
 
 interface DayAgg {
   netR: number;
+  netPnl: number;
   count: number;
   hasR: boolean;
+  hasPnl: boolean;
 }
 
 export default function Calendar() {
@@ -33,11 +35,17 @@ export default function Calendar() {
     const map = new Map<string, DayAgg>();
     for (const t of trades) {
       const key = t.date;
-      const agg = map.get(key) ?? { netR: 0, count: 0, hasR: false };
+      const agg =
+        map.get(key) ??
+        { netR: 0, netPnl: 0, count: 0, hasR: false, hasPnl: false };
       agg.count += 1;
       if (t.realizedR != null && Number.isFinite(t.realizedR)) {
         agg.netR += t.realizedR;
         agg.hasR = true;
+      }
+      if (t.pnl != null && Number.isFinite(t.pnl)) {
+        agg.netPnl += t.pnl;
+        agg.hasPnl = true;
       }
       map.set(key, agg);
     }
@@ -64,6 +72,19 @@ export default function Calendar() {
     return sum;
   }, [byDate, month]);
 
+  const monthNetPnl = useMemo(() => {
+    let sum = 0;
+    let any = false;
+    for (const [date, agg] of byDate) {
+      const d = new Date(date + "T00:00:00");
+      if (isSameMonth(d, month) && agg.hasPnl) {
+        sum += agg.netPnl;
+        any = true;
+      }
+    }
+    return any ? sum : null;
+  }, [byDate, month]);
+
   const dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   return (
@@ -71,7 +92,7 @@ export default function Calendar() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Calendar</h1>
-          <p className="page-subtitle">Daily Net R at a glance</p>
+          <p className="page-subtitle">Daily P&amp;L and Net R at a glance</p>
         </div>
       </div>
 
@@ -81,10 +102,25 @@ export default function Calendar() {
         </button>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontWeight: 600 }}>{format(month, "MMMM yyyy")}</div>
-          <div className={`mono ${signClass(monthNetR)}`} style={{ fontSize: 13 }}>
-            {monthNetR > 0 ? "+" : ""}
-            {monthNetR.toFixed(2)}R this month
-          </div>
+          {monthNetPnl != null ? (
+            <>
+              <div
+                className={`mono ${signClass(monthNetPnl)}`}
+                style={{ fontSize: 15, fontWeight: 600 }}
+              >
+                {fmtUsd(monthNetPnl)} this month
+              </div>
+              <div className={`mono ${signClass(monthNetR)}`} style={{ fontSize: 12 }}>
+                {monthNetR > 0 ? "+" : ""}
+                {monthNetR.toFixed(2)}R
+              </div>
+            </>
+          ) : (
+            <div className={`mono ${signClass(monthNetR)}`} style={{ fontSize: 13 }}>
+              {monthNetR > 0 ? "+" : ""}
+              {monthNetR.toFixed(2)}R this month
+            </div>
+          )}
         </div>
         <button className="btn btn-sm" onClick={() => setMonth((m) => addMonths(m, 1))}>
           <ChevronRight size={16} />
@@ -137,11 +173,23 @@ export default function Calendar() {
                       <span className="cal-date">{format(day, "d")}</span>
                       {agg && (
                         <>
-                          <span className={`cal-r ${signClass(agg.netR)}`}>
-                            {agg.hasR
-                              ? `${agg.netR > 0 ? "+" : ""}${agg.netR.toFixed(2)}R`
-                              : "—"}
-                          </span>
+                          {agg.hasPnl ? (
+                            <span className={`cal-usd ${signClass(agg.netPnl)}`}>
+                              {fmtUsd(agg.netPnl)}
+                            </span>
+                          ) : (
+                            <span className={`cal-usd ${signClass(agg.netR)}`}>
+                              {agg.hasR
+                                ? `${agg.netR > 0 ? "+" : ""}${agg.netR.toFixed(2)}R`
+                                : "—"}
+                            </span>
+                          )}
+                          {agg.hasPnl && agg.hasR && (
+                            <span className={`cal-r ${signClass(agg.netR)}`}>
+                              {agg.netR > 0 ? "+" : ""}
+                              {agg.netR.toFixed(2)}R
+                            </span>
+                          )}
                           <span className="cal-count">
                             {agg.count} trade{agg.count === 1 ? "" : "s"}
                           </span>
@@ -182,6 +230,7 @@ export default function Calendar() {
                       <th>Dir</th>
                       <th>Setup</th>
                       <th>Result</th>
+                      <th>PnL</th>
                       <th>R</th>
                       <th></th>
                     </tr>
@@ -202,6 +251,9 @@ export default function Calendar() {
                         <td>{t.setup || <span className="faint">—</span>}</td>
                         <td>
                           <ResultBadge result={resultFromR(t.realizedR)} />
+                        </td>
+                        <td className={`mono ${signClass(t.pnl)}`}>
+                          {fmtUsd(t.pnl)}
                         </td>
                         <td>
                           <RCell value={t.realizedR ?? null} />

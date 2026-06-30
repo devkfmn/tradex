@@ -125,6 +125,7 @@ export default function AddTrade() {
   const [form, setForm] = useState<FormState>(blankForm());
   const [existingUrls, setExistingUrls] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -176,10 +177,39 @@ export default function AddTrade() {
 
   const result = resultFromR(effectiveRealizedR);
 
+  const addFiles = (files: File[]) => {
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (!images.length) return;
+    setPendingFiles((prev) => [...prev, ...images]);
+  };
+
   const onPickFiles = (files: FileList | null) => {
     if (!files) return;
-    setPendingFiles((prev) => [...prev, ...Array.from(files)]);
+    addFiles(Array.from(files));
   };
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const pasted: File[] = [];
+      for (const item of Array.from(items)) {
+        if (!item.type.startsWith("image/")) continue;
+        const blob = item.getAsFile();
+        if (!blob) continue;
+        const ext = blob.type.split("/")[1] || "png";
+        pasted.push(
+          new File([blob], `pasted-${Date.now()}.${ext}`, { type: blob.type })
+        );
+      }
+      if (pasted.length) {
+        e.preventDefault();
+        addFiles(pasted);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -578,15 +608,36 @@ export default function AddTrade() {
               <span className="muted">No screenshots yet.</span>
             )}
           </div>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => {
-              onPickFiles(e.target.files);
-              e.target.value = "";
+          <div
+            className={`dropzone${dragging ? " dragging" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
             }}
-          />
+            onDragEnter={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              addFiles(Array.from(e.dataTransfer.files));
+            }}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => {
+                onPickFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <div className="dropzone-hint">
+              Drag &amp; drop images here, paste (Ctrl+V), or use the picker.
+            </div>
+          </div>
           <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
             Add before/after charts. Files upload when you save.
           </div>

@@ -3,7 +3,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { addSetup, deleteSetup, updateSetup } from "../services/setups";
-import { computeStats, fmtPct, fmtR } from "../lib/analytics";
+import { computeStats, fmtPct, fmtR, fmtUsd } from "../lib/analytics";
 import { ConfirmDialog, EmptyState, Modal } from "../components/ui";
 import type { Setup, SetupInput } from "../types";
 
@@ -87,6 +87,10 @@ export default function Playbook() {
                   <div className="setup-stat">
                     <div className="k">Win rate</div>
                     <div className="v">{fmtPct(st?.winRate ?? null)}</div>
+                  </div>
+                  <div className="setup-stat">
+                    <div className="k">Net $</div>
+                    <div className="v">{st?.hasPnl ? fmtUsd(st.netPnl) : "—"}</div>
                   </div>
                   <div className="setup-stat">
                     <div className="k">Net R</div>

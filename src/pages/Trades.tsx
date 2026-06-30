@@ -12,7 +12,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { deleteTrade } from "../services/trades";
-import { resultFromR, signClass } from "../lib/analytics";
+import { fmtUsd, resultFromR, signClass } from "../lib/analytics";
 import { applyFilters, emptyFilters, type TradeFilters } from "../lib/filters";
 import { downloadCsv, tradesToCsv } from "../lib/csv";
 import FilterBar from "../components/FilterBar";
@@ -171,9 +171,9 @@ export default function Trades() {
                   </td>
                   <td>{t.setup || <span className="faint">—</span>}</td>
                   <td className="mono">{t.riskPct != null ? `${t.riskPct}%` : "—"}</td>
-                  <td className="mono">{t.riskUsd != null ? t.riskUsd : "—"}</td>
+                  <td className="mono">{fmtUsd(t.riskUsd)}</td>
                   <td className={`mono ${signClass(t.pnl)}`}>
-                    {t.pnl != null ? t.pnl : "—"}
+                    {fmtUsd(t.pnl)}
                   </td>
                   <td>
                     <RCell value={t.realizedR ?? null} />

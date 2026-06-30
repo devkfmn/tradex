@@ -5,7 +5,9 @@ import {
   fmtNum,
   fmtPct,
   fmtR,
+  fmtUsd,
   groupStats,
+  signClass,
   weekdayStats,
   type GroupStat,
 } from "../lib/analytics";
@@ -69,17 +71,37 @@ export default function Reports() {
             <h3>Long vs Short</h3>
             <div className="lvs-grid">
               <StatCard
-                label="Long Net R"
-                value={fmtR(longStats.netR)}
-                tone={longStats.netR > 0 ? "pos" : longStats.netR < 0 ? "neg" : ""}
-                sub={`${longStats.count} trades`}
+                label={longStats.hasPnl ? "Long Net P&L" : "Long Net R"}
+                value={longStats.hasPnl ? fmtUsd(longStats.netPnl) : fmtR(longStats.netR)}
+                tone={
+                  (longStats.hasPnl ? longStats.netPnl : longStats.netR) > 0
+                    ? "pos"
+                    : (longStats.hasPnl ? longStats.netPnl : longStats.netR) < 0
+                    ? "neg"
+                    : ""
+                }
+                sub={
+                  longStats.hasPnl
+                    ? `${longStats.count} trades · ${fmtR(longStats.netR)}`
+                    : `${longStats.count} trades`
+                }
               />
               <StatCard label="Long Win %" value={fmtPct(longStats.winRate)} />
               <StatCard
-                label="Short Net R"
-                value={fmtR(shortStats.netR)}
-                tone={shortStats.netR > 0 ? "pos" : shortStats.netR < 0 ? "neg" : ""}
-                sub={`${shortStats.count} trades`}
+                label={shortStats.hasPnl ? "Short Net P&L" : "Short Net R"}
+                value={shortStats.hasPnl ? fmtUsd(shortStats.netPnl) : fmtR(shortStats.netR)}
+                tone={
+                  (shortStats.hasPnl ? shortStats.netPnl : shortStats.netR) > 0
+                    ? "pos"
+                    : (shortStats.hasPnl ? shortStats.netPnl : shortStats.netR) < 0
+                    ? "neg"
+                    : ""
+                }
+                sub={
+                  shortStats.hasPnl
+                    ? `${shortStats.count} trades · ${fmtR(shortStats.netR)}`
+                    : `${shortStats.count} trades`
+                }
               />
               <StatCard label="Short Win %" value={fmtPct(shortStats.winRate)} />
             </div>
@@ -101,6 +123,7 @@ export default function Reports() {
                     <tr>
                       <th>Mistake</th>
                       <th>Count</th>
+                      <th>Net $</th>
                       <th>Net R</th>
                       <th>Avg R</th>
                     </tr>
@@ -110,6 +133,9 @@ export default function Reports() {
                       <tr key={g.key}>
                         <td>{g.key}</td>
                         <td className="mono">{g.count}</td>
+                        <td className={`mono ${signClass(g.netPnl)}`}>
+                          {g.hasPnl ? fmtUsd(g.netPnl) : <span className="faint">—</span>}
+                        </td>
                         <td>
                           <RCell value={g.netR} />
                         </td>
@@ -133,6 +159,7 @@ export default function Reports() {
                     <th>Coin</th>
                     <th>Trades</th>
                     <th>Win %</th>
+                    <th>Net $</th>
                     <th>Net R</th>
                     <th>Avg R</th>
                   </tr>
@@ -143,6 +170,9 @@ export default function Reports() {
                       <td>{g.key}</td>
                       <td className="mono">{g.count}</td>
                       <td className="mono">{fmtPct(g.winRate)}</td>
+                      <td className={`mono ${signClass(g.netPnl)}`}>
+                        {g.hasPnl ? fmtUsd(g.netPnl) : <span className="faint">—</span>}
+                      </td>
                       <td>
                         <RCell value={g.netR} />
                       </td>
@@ -164,6 +194,7 @@ export default function Reports() {
                   <tr>
                     <th>Day</th>
                     <th>Trades</th>
+                    <th>Net $</th>
                     <th>Net R</th>
                     <th>Avg R</th>
                   </tr>
@@ -173,6 +204,9 @@ export default function Reports() {
                     <tr key={g.key}>
                       <td>{g.key}</td>
                       <td className="mono">{g.count}</td>
+                      <td className={`mono ${signClass(g.netPnl)}`}>
+                        {g.hasPnl ? fmtUsd(g.netPnl) : <span className="faint">—</span>}
+                      </td>
                       <td>
                         {g.count ? <RCell value={g.netR} /> : <span className="faint">—</span>}
                       </td>
@@ -200,6 +234,7 @@ function FullStatTable({ rows, keyLabel }: { rows: GroupStat[]; keyLabel: string
             <th>{keyLabel}</th>
             <th>Trades</th>
             <th>Win %</th>
+            <th>Net $</th>
             <th>Net R</th>
             <th>Avg R</th>
             <th>Expectancy</th>
@@ -212,6 +247,9 @@ function FullStatTable({ rows, keyLabel }: { rows: GroupStat[]; keyLabel: string
               <td>{g.key}</td>
               <td className="mono">{g.count}</td>
               <td className="mono">{fmtPct(g.winRate)}</td>
+              <td className={`mono ${signClass(g.netPnl)}`}>
+                {g.hasPnl ? fmtUsd(g.netPnl) : <span className="faint">—</span>}
+              </td>
               <td>
                 <RCell value={g.netR} />
               </td>

@@ -48,6 +48,8 @@ export function tradesWithR(trades: Trade[]): { trade: Trade; r: number }[] {
 export interface Stats {
   count: number;
   netR: number;
+  netPnl: number;
+  hasPnl: boolean;
   winRate: number | null;
   avgWinR: number | null;
   avgLossR: number | null; // absolute value
@@ -63,10 +65,18 @@ export function computeStats(trades: Trade[]): Stats {
   const rows = tradesWithR(trades);
   const count = rows.length;
 
+  const pnls = trades
+    .map((t) => t.pnl)
+    .filter((p): p is number => p != null && Number.isFinite(p));
+  const netPnl = sum(pnls);
+  const hasPnl = pnls.length > 0;
+
   if (count === 0) {
     return {
       count: 0,
       netR: 0,
+      netPnl,
+      hasPnl,
       winRate: null,
       avgWinR: null,
       avgLossR: null,
@@ -91,6 +101,8 @@ export function computeStats(trades: Trade[]): Stats {
   return {
     count,
     netR,
+    netPnl,
+    hasPnl,
     winRate: count > 0 ? winRs.length / count : null,
     avgWinR: winRs.length > 0 ? grossWin / winRs.length : null,
     avgLossR: lossRs.length > 0 ? grossLoss / lossRs.length : null,

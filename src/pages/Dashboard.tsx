@@ -17,6 +17,7 @@ import {
   fmtNum,
   fmtPct,
   fmtR,
+  fmtUsd,
   groupStats,
   signClass,
 } from "../lib/analytics";
@@ -103,9 +104,16 @@ export default function Dashboard() {
 
       <div className="stat-grid">
         <StatCard
-          label="Net R"
-          value={fmtR(stats.netR)}
-          tone={stats.netR > 0 ? "pos" : stats.netR < 0 ? "neg" : ""}
+          label={stats.hasPnl ? "Net P&L" : "Net R"}
+          value={stats.hasPnl ? fmtUsd(stats.netPnl) : fmtR(stats.netR)}
+          sub={stats.hasPnl ? `${fmtR(stats.netR)} net` : undefined}
+          tone={
+            (stats.hasPnl ? stats.netPnl : stats.netR) > 0
+              ? "pos"
+              : (stats.hasPnl ? stats.netPnl : stats.netR) < 0
+              ? "neg"
+              : ""
+          }
         />
         <StatCard label="Win rate" value={fmtPct(stats.winRate)} sub={`${stats.wins}W / ${stats.losses}L / ${stats.breakEvens}BE`} />
         <StatCard label="Avg win" value={fmtR(stats.avgWinR)} />
@@ -177,6 +185,7 @@ export default function Dashboard() {
                 {bestSetup.key}
               </div>
               <div className="insight-meta">
+                {bestSetup.hasPnl ? `${fmtUsd(bestSetup.netPnl)} · ` : ""}
                 {fmtR(bestSetup.netR)} net · {fmtR(bestSetup.expectancy)} exp ·{" "}
                 {bestSetup.count} trade{bestSetup.count === 1 ? "" : "s"}
               </div>
@@ -193,6 +202,7 @@ export default function Dashboard() {
                 {worstSetup.key}
               </div>
               <div className="insight-meta">
+                {worstSetup.hasPnl ? `${fmtUsd(worstSetup.netPnl)} · ` : ""}
                 {fmtR(worstSetup.netR)} net · {fmtR(worstSetup.expectancy)} exp ·{" "}
                 {worstSetup.count} trade{worstSetup.count === 1 ? "" : "s"}
               </div>
@@ -207,6 +217,7 @@ export default function Dashboard() {
             <>
               <div className="insight-value neg">{worstMistake.key}</div>
               <div className="insight-meta">
+                {worstMistake.hasPnl ? `${fmtUsd(worstMistake.netPnl)} · ` : ""}
                 {fmtR(worstMistake.netR)} net · {worstMistake.count} trade
                 {worstMistake.count === 1 ? "" : "s"}
               </div>
