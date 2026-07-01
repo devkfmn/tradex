@@ -40,7 +40,6 @@ type FormState = {
   session: string;
   marketCondition: string;
   thesis: string;
-  exit: string;
   pnl: string;
   realizedR: string;
   grade: string;
@@ -48,7 +47,6 @@ type FormState = {
   exitReason: string;
   maxFavorableR: string;
   maxAdverseR: string;
-  didHitPlannedTp: "" | "yes" | "no";
   postNotes: string;
 };
 
@@ -66,7 +64,6 @@ const blankForm = (): FormState => ({
   session: "",
   marketCondition: "",
   thesis: "",
-  exit: "",
   pnl: "",
   realizedR: "",
   grade: "",
@@ -74,7 +71,6 @@ const blankForm = (): FormState => ({
   exitReason: "",
   maxFavorableR: "",
   maxAdverseR: "",
-  didHitPlannedTp: "",
   postNotes: "",
 });
 
@@ -101,7 +97,6 @@ function fromTrade(t: Trade): FormState {
     session: t.session ?? "",
     marketCondition: t.marketCondition ?? "",
     thesis: t.thesis ?? "",
-    exit: s(t.exit),
     pnl: s(t.pnl),
     realizedR: s(t.realizedR),
     grade: t.grade ?? "",
@@ -109,8 +104,6 @@ function fromTrade(t: Trade): FormState {
     exitReason: t.exitReason ?? "",
     maxFavorableR: s(t.maxFavorableR),
     maxAdverseR: s(t.maxAdverseR),
-    didHitPlannedTp:
-      t.didHitPlannedTp == null ? "" : t.didHitPlannedTp ? "yes" : "no",
     postNotes: t.postNotes ?? "",
   };
 }
@@ -244,7 +237,6 @@ export default function AddTrade() {
       entry: num(form.entry),
       stop: num(form.stop),
       target: num(form.target),
-      exit: num(form.exit),
       timeframe: form.timeframe.trim(),
       session: (form.session as Trade["session"]) || "",
       marketCondition: (form.marketCondition as Trade["marketCondition"]) || "",
@@ -252,8 +244,6 @@ export default function AddTrade() {
       plannedR: derivedPlannedR,
       maxFavorableR: num(form.maxFavorableR),
       maxAdverseR: num(form.maxAdverseR),
-      didHitPlannedTp:
-        form.didHitPlannedTp === "" ? null : form.didHitPlannedTp === "yes",
       thesis: form.thesis.trim(),
     };
 
@@ -449,15 +439,6 @@ export default function AddTrade() {
           <div className="section-title">2 · Review</div>
           <div className="form-grid">
             <div>
-              <label>Exit</label>
-              <input
-                type="number"
-                step="any"
-                value={form.exit}
-                onChange={(e) => set("exit", e.target.value)}
-              />
-            </div>
-            <div>
               <label>PnL ($)</label>
               <input
                 type="number"
@@ -550,19 +531,6 @@ export default function AddTrade() {
                 value={form.maxAdverseR}
                 onChange={(e) => set("maxAdverseR", e.target.value)}
               />
-            </div>
-            <div>
-              <label>Did price hit planned TP?</label>
-              <select
-                value={form.didHitPlannedTp}
-                onChange={(e) =>
-                  set("didHitPlannedTp", e.target.value as FormState["didHitPlannedTp"])
-                }
-              >
-                <option value="">—</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
             </div>
             <div className="field-full">
               <label>Post notes</label>

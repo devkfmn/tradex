@@ -38,7 +38,6 @@ export interface Trade {
   entry?: number | null;
   stop?: number | null;
   target?: number | null;
-  exit?: number | null;
   timeframe?: string;
   session?: Session | "";
   marketCondition?: MarketCondition | "";
@@ -46,7 +45,6 @@ export interface Trade {
   plannedR?: number | null;
   maxFavorableR?: number | null;
   maxAdverseR?: number | null;
-  didHitPlannedTp?: boolean | null;
   thesis?: string;
 
   createdAt?: number | null;

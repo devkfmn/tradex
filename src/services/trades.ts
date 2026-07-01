@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  deleteField,
   getDoc,
   getDocs,
   orderBy,
@@ -10,6 +11,7 @@ import {
   serverTimestamp,
   updateDoc,
   Timestamp,
+  writeBatch,
 } from "firebase/firestore";
 import {
   deleteObject,
@@ -49,7 +51,6 @@ function fromDoc(id: string, data: Record<string, unknown>): Trade {
     entry: (data.entry as number) ?? null,
     stop: (data.stop as number) ?? null,
     target: (data.target as number) ?? null,
-    exit: (data.exit as number) ?? null,
     timeframe: (data.timeframe as string) ?? "",
     session: (data.session as Trade["session"]) ?? "",
     marketCondition: (data.marketCondition as Trade["marketCondition"]) ?? "",
@@ -57,7 +58,6 @@ function fromDoc(id: string, data: Record<string, unknown>): Trade {
     plannedR: (data.plannedR as number) ?? null,
     maxFavorableR: (data.maxFavorableR as number) ?? null,
     maxAdverseR: (data.maxAdverseR as number) ?? null,
-    didHitPlannedTp: (data.didHitPlannedTp as boolean) ?? null,
     thesis: (data.thesis as string) ?? "",
     createdAt: tsToMillis(data.createdAt),
     updatedAt: tsToMillis(data.updatedAt),
@@ -105,6 +105,26 @@ export async function updateTrade(
 ): Promise<void> {
   const payload = clean({ ...input, updatedAt: serverTimestamp() });
   await updateDoc(doc(db, "users", uid, "trades", id), payload);
+}
+
+const LEGACY_TRADE_FIELDS = {
+  exit: deleteField(),
+  didHitPlannedTp: deleteField(),
+};
+
+/** One-time cleanup: strip removed fields from every trade document. */
+export async function removeLegacyTradeFields(uid: string): Promise<void> {
+  const snap = await getDocs(tradesCol(uid));
+  if (snap.empty) return;
+
+  const batchSize = 500;
+  for (let i = 0; i < snap.docs.length; i += batchSize) {
+    const batch = writeBatch(db);
+    for (const d of snap.docs.slice(i, i + batchSize)) {
+      batch.update(d.ref, LEGACY_TRADE_FIELDS);
+    }
+    await batch.commit();
+  }
 }
 
 export async function deleteTrade(uid: string, id: string): Promise<void> {

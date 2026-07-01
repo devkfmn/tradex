@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useAuth } from "./AuthContext";
 import type { Review, Setup, Trade } from "../types";
-import { listTrades } from "../services/trades";
+import { listTrades, removeLegacyTradeFields } from "../services/trades";
 import { listSetups } from "../services/setups";
 import { listReviews } from "../services/reviews";
 
@@ -25,6 +25,8 @@ interface DataContextValue {
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
+
+const LEGACY_FIELDS_MIGRATION_KEY = "tradex.migration.removedExitFields.v1";
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -56,6 +58,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
+      const migrationKey = `${LEGACY_FIELDS_MIGRATION_KEY}.${uid}`;
+      if (!localStorage.getItem(migrationKey)) {
+        await removeLegacyTradeFields(uid);
+        localStorage.setItem(migrationKey, "1");
+      }
       const [t, s, r] = await Promise.all([
         listTrades(uid),
         listSetups(uid),
