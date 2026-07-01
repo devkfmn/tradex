@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Check, Copy } from "lucide-react";
 import { StatCard } from "../components/ui";
 import { fmtNum, fmtPct, fmtUsd } from "../lib/analytics";
+import type { TradePlanPrefill } from "../types";
 
 const LEVERAGE_BUFFER = 1.25; // validation: liquidation should be 25% farther than the stop
 const MAX_LEVERAGE = 125;
@@ -9,6 +11,9 @@ const MAX_LEVERAGE = 125;
 const STORAGE_KEYS = {
   balance: "tradex.calc.balance",
   riskPct: "tradex.calc.riskPct",
+  entry: "tradex.calc.entry",
+  stop: "tradex.calc.stop",
+  target: "tradex.calc.target",
 };
 
 function usePersistentState(key: string): [string, (v: string) => void] {
@@ -160,11 +165,12 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function Calculator() {
+  const navigate = useNavigate();
   const [balance, setBalance] = usePersistentState(STORAGE_KEYS.balance);
   const [riskPct, setRiskPct] = usePersistentState(STORAGE_KEYS.riskPct);
-  const [entry, setEntry] = useState("");
-  const [stop, setStop] = useState("");
-  const [target, setTarget] = useState("");
+  const [entry, setEntry] = usePersistentState(STORAGE_KEYS.entry);
+  const [stop, setStop] = usePersistentState(STORAGE_KEYS.stop);
+  const [target, setTarget] = usePersistentState(STORAGE_KEYS.target);
 
   const calc = useMemo(
     () =>
@@ -179,6 +185,19 @@ export default function Calculator() {
   );
 
   const dash = "—";
+
+  const addTrade = () => {
+    if (!calc) return;
+    const prefill: TradePlanPrefill = {
+      entry,
+      stop,
+      target,
+      direction: calc.direction,
+      riskPct,
+      riskUsd: String(calc.riskAmount),
+    };
+    navigate("/trades/new", { state: prefill });
+  };
 
   return (
     <div className="page">
@@ -314,16 +333,26 @@ export default function Calculator() {
             <CopyRow label="Leverage" value={`${calc.leverage}x`} />
             <CopyRow label="Entry" value={fmtNum(num(entry) ?? 0)} />
             <CopyRow label="Size (USDT)" value={fmtNum(calc.size)} />
-            <CopyRow label="Stop Loss" value={fmtNum(num(stop) ?? 0)} />
             <CopyRow
               label="Take Profit"
               value={num(target) != null ? fmtNum(num(target) as number) : dash}
             />
+            <CopyRow label="Stop Loss" value={fmtNum(num(stop) ?? 0)} />
           </div>
         ) : (
           <p className="muted" style={{ margin: 0 }}>
             Enter balance, risk %, entry, and stop loss to see your order.
           </p>
+        )}
+        {calc && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ marginTop: 16 }}
+            onClick={addTrade}
+          >
+            Add Trade
+          </button>
         )}
       </div>
     </div>

@@ -55,6 +55,15 @@ export interface Trade {
 
 export type TradeInput = Omit<Trade, "id">;
 
+export type TradePlanPrefill = {
+  entry: string;
+  stop: string;
+  target: string;
+  direction: Direction;
+  riskPct: string;
+  riskUsd: string;
+};
+
 export interface Setup {
   id: string;
   name: string;

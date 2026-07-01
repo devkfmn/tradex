@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -24,7 +24,7 @@ import {
   SESSIONS,
 } from "../lib/constants";
 import { ResultBadge } from "../components/ui";
-import type { Direction, Trade, TradeInput } from "../types";
+import type { Direction, Trade, TradeInput, TradePlanPrefill } from "../types";
 
 type FormState = {
   date: string;
@@ -119,10 +119,17 @@ export default function AddTrade() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { setups, reloadTrades } = useData();
 
-  const [form, setForm] = useState<FormState>(blankForm());
+  const [form, setForm] = useState<FormState>(() => {
+    const base = blankForm();
+    if (isEdit) return base;
+    const prefill = location.state as TradePlanPrefill | null;
+    if (!prefill) return base;
+    return { ...base, ...prefill };
+  });
   const [existingUrls, setExistingUrls] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
