@@ -3,7 +3,7 @@ import { Check, Copy } from "lucide-react";
 import { StatCard } from "../components/ui";
 import { fmtNum, fmtPct, fmtUsd } from "../lib/analytics";
 
-const LEVERAGE_BUFFER = 1.25; // require liquidation 25% farther than the stop
+const LEVERAGE_BUFFER = 1.25; // validation: liquidation should be 25% farther than the stop
 const MAX_LEVERAGE = 125;
 
 const STORAGE_KEYS = {
@@ -48,8 +48,13 @@ type Calc = {
   margin: number;
   liquidation: number;
   marginExceedsBalance: boolean;
+  liquidationTooClose: boolean;
   tpWrongSide: boolean;
 };
+
+function roundLeverageUp(leverage: number): number {
+  return Math.ceil(leverage / 5) * 5;
+}
 
 function compute(
   balance: number | null,
@@ -96,9 +101,13 @@ function compute(
     }
   }
 
-  let leverage = Math.floor(1 / (stopDistFrac * LEVERAGE_BUFFER));
-  if (!Number.isFinite(leverage) || leverage < 1) leverage = 1;
+  let leverage = roundLeverageUp(Math.ceil(size / balance));
+  if (!Number.isFinite(leverage) || leverage < 5) leverage = 5;
   if (leverage > MAX_LEVERAGE) leverage = MAX_LEVERAGE;
+
+  let maxSafeLeverage = Math.floor(1 / (stopDistFrac * LEVERAGE_BUFFER));
+  if (!Number.isFinite(maxSafeLeverage) || maxSafeLeverage < 1) maxSafeLeverage = 1;
+  const liquidationTooClose = leverage > maxSafeLeverage;
 
   const margin = size / leverage;
   const liquidation =
@@ -118,6 +127,7 @@ function compute(
     margin,
     liquidation,
     marginExceedsBalance: margin > balance,
+    liquidationTooClose,
     tpWrongSide,
   };
 }
@@ -276,6 +286,14 @@ export default function Calculator() {
           <StatCard
             label="Liquidation Price"
             value={calc ? fmtNum(calc.liquidation) : dash}
+            sub={
+              calc?.liquidationTooClose ? (
+                <span className="neg">
+                  Closer than your stop (incl. 25% buffer). Consider a smaller size
+                  or wider stop.
+                </span>
+              ) : undefined
+            }
           />
           <StatCard
             label="Margin used"
