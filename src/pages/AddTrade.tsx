@@ -642,6 +642,7 @@ export default function AddTrade() {
 
 const COMMON_MISTAKES = [
   "FOMO",
+  "Didn't take profits",
   "Early exit",
   "Late entry",
   "No stop",
