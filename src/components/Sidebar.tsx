@@ -20,11 +20,10 @@ const NAV = [
   { to: "/trades", label: "Trades", icon: List },
   { to: "/trades/new", label: "Add Trade", icon: PlusCircle },
   { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/playbook", label: "Playbook", icon: BookOpen },
-  { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/review", label: "Review", icon: ClipboardCheck },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/playbook", label: "Playbook", icon: BookOpen },
   { to: "/calculator", label: "Calculator", icon: Calculator },
-  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function Sidebar({
@@ -68,6 +67,16 @@ export default function Sidebar({
         </nav>
 
         <div className="sidebar-footer">
+          <NavLink
+            to="/settings"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `sidebar-link sidebar-settings ${isActive ? "active" : ""}`
+            }
+          >
+            <Settings size={17} />
+            <span>Settings</span>
+          </NavLink>
           <div className="sidebar-user">
             {user?.photoURL ? (
               <img src={user.photoURL} alt="" className="avatar" />

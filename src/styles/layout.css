@@ -101,6 +101,9 @@
   border-top: 1px solid var(--border);
   padding: 12px;
 }
+.sidebar-settings {
+  margin-bottom: 8px;
+}
 .sidebar-user {
   display: flex;
   align-items: center;
