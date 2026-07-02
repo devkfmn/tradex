@@ -97,12 +97,13 @@
   color: var(--text);
 }
 
+.sidebar-settings-wrap {
+  padding: 0 10px 12px;
+}
+
 .sidebar-footer {
   border-top: 1px solid var(--border);
   padding: 12px;
-}
-.sidebar-settings {
-  margin-bottom: 8px;
 }
 .sidebar-user {
   display: flex;

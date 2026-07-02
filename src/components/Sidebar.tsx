@@ -66,17 +66,20 @@ export default function Sidebar({
           ))}
         </nav>
 
-        <div className="sidebar-footer">
+        <div className="sidebar-settings-wrap">
           <NavLink
             to="/settings"
             onClick={onClose}
             className={({ isActive }) =>
-              `sidebar-link sidebar-settings ${isActive ? "active" : ""}`
+              `sidebar-link ${isActive ? "active" : ""}`
             }
           >
             <Settings size={17} />
             <span>Settings</span>
           </NavLink>
+        </div>
+
+        <div className="sidebar-footer">
           <div className="sidebar-user">
             {user?.photoURL ? (
               <img src={user.photoURL} alt="" className="avatar" />
