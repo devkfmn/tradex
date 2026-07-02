@@ -13,6 +13,7 @@ import {
 import { useData } from "../context/DataContext";
 import {
   computeStats,
+  cumulativePnlCurve,
   cumulativeRCurve,
   fmtNum,
   fmtPct,
@@ -23,11 +24,20 @@ import {
 } from "../lib/analytics";
 import { StatCard, EmptyState } from "../components/ui";
 
+function fmtUsdCompact(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}k`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
 export default function Dashboard() {
   const { trades, loading } = useData();
 
   const stats = useMemo(() => computeStats(trades), [trades]);
   const curve = useMemo(() => cumulativeRCurve(trades), [trades]);
+  const pnlCurve = useMemo(() => cumulativePnlCurve(trades), [trades]);
 
   const setupGroups = useMemo(
     () => groupStats(trades, (t) => t.setup, { emptyLabel: "No setup" }),
@@ -168,6 +178,53 @@ export default function Dashboard() {
                 type="monotone"
                 dataKey="cumR"
                 stroke="#6366f1"
+                strokeWidth={2}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      <div className="chart-card">
+        <h3>Equity curve</h3>
+        {pnlCurve.length === 0 ? (
+          <p className="muted">No trades with PnL yet.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={pnlCurve} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+              <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="index"
+                stroke="#5b6577"
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+              />
+              <YAxis
+                stroke="#5b6577"
+                tick={{ fontSize: 11 }}
+                tickLine={false}
+                width={48}
+                tickFormatter={fmtUsdCompact}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#141925",
+                  border: "1px solid #2e3850",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                labelStyle={{ color: "#8a93a6" }}
+                formatter={(value: number) => [fmtUsd(value), "Cumulative"]}
+                labelFormatter={(i) => {
+                  const p = pnlCurve[(i as number) - 1];
+                  return p ? `Trade ${i} · ${p.date}` : `Trade ${i}`;
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="cumPnl"
+                stroke="#22c55e"
                 strokeWidth={2}
                 dot={false}
               />

@@ -45,6 +45,13 @@ export function tradesWithR(trades: Trade[]): { trade: Trade; r: number }[] {
     .map((t) => ({ trade: t, r: t.realizedR as number }));
 }
 
+/** Trades that have a usable PnL value. */
+export function tradesWithPnl(trades: Trade[]): { trade: Trade; pnl: number }[] {
+  return trades
+    .filter((t) => t.pnl != null && Number.isFinite(t.pnl))
+    .map((t) => ({ trade: t, pnl: t.pnl as number }));
+}
+
 export interface Stats {
   count: number;
   netR: number;
@@ -149,6 +156,25 @@ export function cumulativeRCurve(trades: Trade[]): CumPoint[] {
   return rows.map((row, i) => {
     cum += row.r;
     return { index: i + 1, date: row.trade.date, cumR: round(cum), r: row.r };
+  });
+}
+
+export interface CumPnlPoint {
+  index: number;
+  date: string;
+  cumPnl: number;
+  pnl: number;
+}
+
+/** Cumulative PnL curve ordered by date ascending. */
+export function cumulativePnlCurve(trades: Trade[]): CumPnlPoint[] {
+  const rows = tradesWithPnl(trades)
+    .slice()
+    .sort((a, b) => a.trade.date.localeCompare(b.trade.date));
+  let cum = 0;
+  return rows.map((row, i) => {
+    cum += row.pnl;
+    return { index: i + 1, date: row.trade.date, cumPnl: round(cum), pnl: row.pnl };
   });
 }
 
