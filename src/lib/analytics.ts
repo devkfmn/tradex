@@ -105,6 +105,11 @@ export function computeStats(trades: Trade[]): Stats {
   const grossWin = sum(winRs);
   const grossLoss = Math.abs(sum(lossRs));
 
+  const sortedRs = rows
+    .slice()
+    .sort((a, b) => a.trade.date.localeCompare(b.trade.date))
+    .map((x) => x.r);
+
   return {
     count,
     netR,
@@ -115,7 +120,7 @@ export function computeStats(trades: Trade[]): Stats {
     avgLossR: lossRs.length > 0 ? grossLoss / lossRs.length : null,
     expectancy: count > 0 ? netR / count : null,
     profitFactor: grossLoss > 0 ? grossWin / grossLoss : null,
-    maxDrawdown: maxDrawdown(rs),
+    maxDrawdown: maxDrawdown(sortedRs),
     wins: winRs.length,
     losses: lossRs.length,
     breakEvens: beRs.length,

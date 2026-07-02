@@ -74,6 +74,16 @@ export interface Setup {
 
 export type SetupInput = Omit<Setup, "id">;
 
+export interface Mistake {
+  id: string;
+  name: string;
+  description: string;
+  createdAt?: number | null;
+  updatedAt?: number | null;
+}
+
+export type MistakeInput = Omit<Mistake, "id">;
+
 export interface Review {
   id: string;
   weekStartDate: string; // ISO date string of the Monday

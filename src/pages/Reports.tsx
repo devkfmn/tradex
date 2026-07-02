@@ -16,7 +16,7 @@ import FilterBar from "../components/FilterBar";
 import { StatCard, EmptyState, RCell } from "../components/ui";
 
 export default function Reports() {
-  const { trades, loading } = useData();
+  const { trades, mistakes, loading } = useData();
   const [filters, setFilters] = useState<TradeFilters>(emptyFilters);
 
   const filtered = useMemo(() => applyFilters(trades, filters), [trades, filters]);
@@ -59,7 +59,12 @@ export default function Reports() {
         </div>
       </div>
 
-      <FilterBar trades={trades} filters={filters} onChange={setFilters} />
+      <FilterBar
+        trades={trades}
+        filters={filters}
+        onChange={setFilters}
+        mistakeOptions={mistakes.map((m) => m.name)}
+      />
 
       {loading ? (
         <p className="muted">Loading…</p>

@@ -1,5 +1,6 @@
 import type { Trade } from "../types";
 import { resultFromR } from "./analytics";
+import { format, startOfMonth, subDays } from "date-fns";
 
 export interface TradeFilters {
   search: string;
@@ -24,6 +25,39 @@ export const emptyFilters: TradeFilters = {
   mistake: "",
   result: "",
 };
+
+export type DatePreset = "all" | "30d" | "90d" | "month" | "custom";
+
+export const DATE_PRESET_LABELS: Record<DatePreset, string> = {
+  all: "All time",
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+  month: "This month",
+  custom: "Custom",
+};
+
+export function presetToDateRange(preset: DatePreset): { from: string; to: string } {
+  const today = format(new Date(), "yyyy-MM-dd");
+  if (preset === "all") return { from: "", to: "" };
+  if (preset === "30d") return { from: format(subDays(new Date(), 29), "yyyy-MM-dd"), to: today };
+  if (preset === "90d") return { from: format(subDays(new Date(), 89), "yyyy-MM-dd"), to: today };
+  if (preset === "month") {
+    return { from: format(startOfMonth(new Date()), "yyyy-MM-dd"), to: today };
+  }
+  return { from: "", to: "" };
+}
+
+export function filterTradesByDateRange(
+  trades: Trade[],
+  from: string,
+  to: string
+): Trade[] {
+  return trades.filter((t) => {
+    if (from && t.date < from) return false;
+    if (to && t.date > to) return false;
+    return true;
+  });
+}
 
 export function applyFilters(trades: Trade[], f: TradeFilters): Trade[] {
   const search = f.search.trim().toLowerCase();
@@ -56,4 +90,17 @@ export function uniqueSorted(values: (string | undefined | null)[]): string[] {
     if (v && v.trim()) set.add(v.trim());
   }
   return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+/** Resolve a free-text label to the canonical library name (case-insensitive). */
+export function canonicalName(
+  value: string,
+  library: { name: string }[]
+): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const match = library.find(
+    (item) => item.name.trim().toLowerCase() === trimmed.toLowerCase()
+  );
+  return match?.name ?? trimmed;
 }

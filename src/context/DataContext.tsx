@@ -7,19 +7,22 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
-import type { Review, Setup, Trade } from "../types";
+import type { Review, Setup, Trade, Mistake } from "../types";
 import { listTrades, removeLegacyTradeFields } from "../services/trades";
 import { listSetups } from "../services/setups";
 import { listReviews } from "../services/reviews";
+import { listMistakes, seedDefaultMistakes } from "../services/mistakes";
 
 interface DataContextValue {
   trades: Trade[];
   setups: Setup[];
+  mistakes: Mistake[];
   reviews: Review[];
   loading: boolean;
   error: string | null;
   reloadTrades: () => Promise<void>;
   reloadSetups: () => Promise<void>;
+  reloadMistakes: () => Promise<void>;
   reloadReviews: () => Promise<void>;
   reloadAll: () => Promise<void>;
 }
@@ -27,6 +30,7 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 const LEGACY_FIELDS_MIGRATION_KEY = "tradex.migration.removedExitFields.v1";
+const MISTAKES_SEED_MIGRATION_KEY = "tradex.migration.seedMistakes.v1";
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -34,6 +38,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [setups, setSetups] = useState<Setup[]>([]);
+  const [mistakes, setMistakes] = useState<Mistake[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +51,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reloadSetups = useCallback(async () => {
     if (!uid) return;
     setSetups(await listSetups(uid));
+  }, [uid]);
+
+  const reloadMistakes = useCallback(async () => {
+    if (!uid) return;
+    setMistakes(await listMistakes(uid));
   }, [uid]);
 
   const reloadReviews = useCallback(async () => {
@@ -63,13 +73,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await removeLegacyTradeFields(uid);
         localStorage.setItem(migrationKey, "1");
       }
-      const [t, s, r] = await Promise.all([
+      const mistakesSeedKey = `${MISTAKES_SEED_MIGRATION_KEY}.${uid}`;
+      if (!localStorage.getItem(mistakesSeedKey)) {
+        await seedDefaultMistakes(uid);
+        localStorage.setItem(mistakesSeedKey, "1");
+      }
+      const [t, s, m, r] = await Promise.all([
         listTrades(uid),
         listSetups(uid),
+        listMistakes(uid),
         listReviews(uid),
       ]);
       setTrades(t);
       setSetups(s);
+      setMistakes(m);
       setReviews(r);
     } catch (e) {
       setError(
@@ -84,6 +101,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!uid) {
       setTrades([]);
       setSetups([]);
+      setMistakes([]);
       setReviews([]);
       setLoading(false);
       return;
@@ -96,11 +114,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       value={{
         trades,
         setups,
+        mistakes,
         reviews,
         loading,
         error,
         reloadTrades,
         reloadSetups,
+        reloadMistakes,
         reloadReviews,
         reloadAll,
       }}

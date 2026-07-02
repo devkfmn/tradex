@@ -28,3 +28,17 @@ export const EXIT_REASONS: ExitReason[] = [
   "Partial",
   "Other",
 ];
+
+export const DEFAULT_MISTAKES = [
+  "FOMO",
+  "Didn't take profits",
+  "Early exit",
+  "Late entry",
+  "No stop",
+  "Moved stop",
+  "Oversized",
+  "Revenge trade",
+  "Chased",
+  "Broke rules",
+  "Hesitation",
+];

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import {
@@ -11,6 +11,11 @@ import {
   YAxis,
 } from "recharts";
 import { useData } from "../context/DataContext";
+import DateRangeBar, {
+  loadDatePreset,
+  saveDatePreset,
+  type DatePreset,
+} from "../components/DateRangeBar";
 import {
   computeStats,
   cumulativePnlCurve,
@@ -22,6 +27,11 @@ import {
   groupStats,
   signClass,
 } from "../lib/analytics";
+import {
+  DATE_PRESET_LABELS,
+  filterTradesByDateRange,
+  presetToDateRange,
+} from "../lib/filters";
 import { StatCard, EmptyState } from "../components/ui";
 
 function fmtUsdCompact(n: number): string {
@@ -35,21 +45,50 @@ function fmtUsdCompact(n: number): string {
 export default function Dashboard() {
   const { trades, loading } = useData();
 
-  const stats = useMemo(() => computeStats(trades), [trades]);
-  const curve = useMemo(() => cumulativeRCurve(trades), [trades]);
-  const pnlCurve = useMemo(() => cumulativePnlCurve(trades), [trades]);
+  const [preset, setPreset] = useState<DatePreset>(() => loadDatePreset());
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  const { from, to } = useMemo(() => {
+    if (preset === "custom") return { from: customFrom, to: customTo };
+    return presetToDateRange(preset);
+  }, [preset, customFrom, customTo]);
+
+  const filteredTrades = useMemo(
+    () => filterTradesByDateRange(trades, from, to),
+    [trades, from, to]
+  );
+
+  const rangeLabel = useMemo(() => {
+    if (preset === "custom") {
+      if (customFrom && customTo) return `${customFrom} – ${customTo}`;
+      if (customFrom) return `From ${customFrom}`;
+      if (customTo) return `Until ${customTo}`;
+      return DATE_PRESET_LABELS.custom;
+    }
+    return DATE_PRESET_LABELS[preset];
+  }, [preset, customFrom, customTo]);
+
+  const handlePresetChange = (next: DatePreset) => {
+    setPreset(next);
+    saveDatePreset(next);
+  };
+
+  const stats = useMemo(() => computeStats(filteredTrades), [filteredTrades]);
+  const curve = useMemo(() => cumulativeRCurve(filteredTrades), [filteredTrades]);
+  const pnlCurve = useMemo(() => cumulativePnlCurve(filteredTrades), [filteredTrades]);
 
   const setupGroups = useMemo(
-    () => groupStats(trades, (t) => t.setup, { emptyLabel: "No setup" }),
-    [trades]
+    () => groupStats(filteredTrades, (t) => t.setup, { emptyLabel: "No setup" }),
+    [filteredTrades]
   );
   const mistakeGroups = useMemo(
     () =>
       groupStats(
-        trades.filter((t) => t.mistake && t.mistake.trim()),
+        filteredTrades.filter((t) => t.mistake && t.mistake.trim()),
         (t) => t.mistake
       ),
-    [trades]
+    [filteredTrades]
   );
 
   const bestSetup = useMemo(
@@ -104,7 +143,7 @@ export default function Dashboard() {
         <div>
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">
-            {stats.count} trades with results · {trades.length} logged
+            {rangeLabel} · {filteredTrades.length} of {trades.length} trades
           </p>
         </div>
         <Link to="/trades/new" className="btn btn-primary">
@@ -112,178 +151,196 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <div className="stat-grid">
-        <StatCard
-          label={stats.hasPnl ? "Net P&L" : "Net R"}
-          value={stats.hasPnl ? fmtUsd(stats.netPnl) : fmtR(stats.netR)}
-          sub={stats.hasPnl ? `${fmtR(stats.netR)} net` : undefined}
-          tone={
-            (stats.hasPnl ? stats.netPnl : stats.netR) > 0
-              ? "pos"
-              : (stats.hasPnl ? stats.netPnl : stats.netR) < 0
-              ? "neg"
-              : ""
-          }
-        />
-        <StatCard label="Win rate" value={fmtPct(stats.winRate)} sub={`${stats.wins}W / ${stats.losses}L / ${stats.breakEvens}BE`} />
-        <StatCard label="Avg win" value={fmtR(stats.avgWinR)} />
-        <StatCard
-          label="Avg loss"
-          value={stats.avgLossR == null ? "—" : `-${stats.avgLossR.toFixed(2)}R`}
-        />
-        <StatCard label="Expectancy" value={fmtR(stats.expectancy)} sub="per trade" />
-        <StatCard label="Profit factor" value={fmtNum(stats.profitFactor)} />
-        <StatCard
-          label="Max drawdown"
-          value={stats.maxDrawdown > 0 ? `-${stats.maxDrawdown.toFixed(2)}R` : "0.00R"}
-        />
-        <StatCard label="Trades taken" value={stats.count} />
-      </div>
+      <DateRangeBar
+        preset={preset}
+        customFrom={customFrom}
+        customTo={customTo}
+        onPresetChange={handlePresetChange}
+        onCustomFromChange={setCustomFrom}
+        onCustomToChange={setCustomTo}
+      />
 
-      <div className="chart-card">
-        <h3>Cumulative R</h3>
-        {curve.length === 0 ? (
-          <p className="muted">No trades with realized R yet.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={curve} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
-              <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
-              <XAxis
-                dataKey="index"
-                stroke="#5b6577"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="#5b6577"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                width={48}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "#141925",
-                  border: "1px solid #2e3850",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: "#8a93a6" }}
-                formatter={(value: number) => [`${value}R`, "Cumulative"]}
-                labelFormatter={(i) => {
-                  const p = curve[(i as number) - 1];
-                  return p ? `Trade ${i} · ${p.date}` : `Trade ${i}`;
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="cumR"
-                stroke="#6366f1"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+      {filteredTrades.length === 0 ? (
+        <EmptyState
+          title="No trades in this range"
+          hint="Try a wider date range or log trades for this period."
+        />
+      ) : (
+        <>
+          <div className="stat-grid">
+            <StatCard
+              label={stats.hasPnl ? "Net P&L" : "Net R"}
+              value={stats.hasPnl ? fmtUsd(stats.netPnl) : fmtR(stats.netR)}
+              sub={stats.hasPnl ? `${fmtR(stats.netR)} net` : undefined}
+              tone={
+                (stats.hasPnl ? stats.netPnl : stats.netR) > 0
+                  ? "pos"
+                  : (stats.hasPnl ? stats.netPnl : stats.netR) < 0
+                  ? "neg"
+                  : ""
+              }
+            />
+            <StatCard label="Win rate" value={fmtPct(stats.winRate)} sub={`${stats.wins}W / ${stats.losses}L / ${stats.breakEvens}BE`} />
+            <StatCard label="Avg win" value={fmtR(stats.avgWinR)} />
+            <StatCard
+              label="Avg loss"
+              value={stats.avgLossR == null ? "—" : `-${stats.avgLossR.toFixed(2)}R`}
+            />
+            <StatCard label="Expectancy" value={fmtR(stats.expectancy)} sub="per trade" />
+            <StatCard label="Profit factor" value={fmtNum(stats.profitFactor)} />
+            <StatCard
+              label="Max drawdown"
+              value={stats.maxDrawdown > 0 ? `-${stats.maxDrawdown.toFixed(2)}R` : "0.00R"}
+            />
+            <StatCard label="Trades taken" value={stats.count} />
+          </div>
 
-      <div className="chart-card">
-        <h3>Equity curve</h3>
-        {pnlCurve.length === 0 ? (
-          <p className="muted">No trades with PnL yet.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={pnlCurve} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
-              <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
-              <XAxis
-                dataKey="index"
-                stroke="#5b6577"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-              />
-              <YAxis
-                stroke="#5b6577"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                width={48}
-                tickFormatter={fmtUsdCompact}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "#141925",
-                  border: "1px solid #2e3850",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: "#8a93a6" }}
-                formatter={(value: number) => [fmtUsd(value), "Cumulative"]}
-                labelFormatter={(i) => {
-                  const p = pnlCurve[(i as number) - 1];
-                  return p ? `Trade ${i} · ${p.date}` : `Trade ${i}`;
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="cumPnl"
-                stroke="#22c55e"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+          <div className="chart-card">
+            <h3>Cumulative R</h3>
+            {curve.length === 0 ? (
+              <p className="muted">No trades with realized R yet.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={curve} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+                  <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="index"
+                    stroke="#5b6577"
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    stroke="#5b6577"
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                    width={48}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "#141925",
+                      border: "1px solid #2e3850",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "#8a93a6" }}
+                    formatter={(value: number) => [`${value}R`, "Cumulative"]}
+                    labelFormatter={(i) => {
+                      const p = curve[(i as number) - 1];
+                      return p ? `Trade ${i} · ${p.date}` : `Trade ${i}`;
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cumR"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
 
-      <div className="insight-grid">
-        <div className="insight-card">
-          <h4>Best setup</h4>
-          {bestSetup ? (
-            <>
-              <div className={`insight-value ${signClass(bestSetup.netR)}`}>
-                {bestSetup.key}
-              </div>
-              <div className="insight-meta">
-                {bestSetup.hasPnl ? `${fmtUsd(bestSetup.netPnl)} · ` : ""}
-                {fmtR(bestSetup.netR)} net · {fmtR(bestSetup.expectancy)} exp ·{" "}
-                {bestSetup.count} trade{bestSetup.count === 1 ? "" : "s"}
-              </div>
-            </>
-          ) : (
-            <div className="muted">—</div>
-          )}
-        </div>
-        <div className="insight-card">
-          <h4>Worst setup</h4>
-          {worstSetup ? (
-            <>
-              <div className={`insight-value ${signClass(worstSetup.netR)}`}>
-                {worstSetup.key}
-              </div>
-              <div className="insight-meta">
-                {worstSetup.hasPnl ? `${fmtUsd(worstSetup.netPnl)} · ` : ""}
-                {fmtR(worstSetup.netR)} net · {fmtR(worstSetup.expectancy)} exp ·{" "}
-                {worstSetup.count} trade{worstSetup.count === 1 ? "" : "s"}
-              </div>
-            </>
-          ) : (
-            <div className="muted">—</div>
-          )}
-        </div>
-        <div className="insight-card">
-          <h4>Most expensive mistake</h4>
-          {worstMistake && worstMistake.netR < 0 ? (
-            <>
-              <div className="insight-value neg">{worstMistake.key}</div>
-              <div className="insight-meta">
-                {worstMistake.hasPnl ? `${fmtUsd(worstMistake.netPnl)} · ` : ""}
-                {fmtR(worstMistake.netR)} net · {worstMistake.count} trade
-                {worstMistake.count === 1 ? "" : "s"}
-              </div>
-            </>
-          ) : (
-            <div className="muted">No costly mistakes logged.</div>
-          )}
-        </div>
-      </div>
+          <div className="chart-card">
+            <h3>Equity curve</h3>
+            {pnlCurve.length === 0 ? (
+              <p className="muted">No trades with PnL yet.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={pnlCurve} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>
+                  <CartesianGrid stroke="#232a3a" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="index"
+                    stroke="#5b6577"
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    stroke="#5b6577"
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                    width={48}
+                    tickFormatter={fmtUsdCompact}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "#141925",
+                      border: "1px solid #2e3850",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: "#8a93a6" }}
+                    formatter={(value: number) => [fmtUsd(value), "Cumulative"]}
+                    labelFormatter={(i) => {
+                      const p = pnlCurve[(i as number) - 1];
+                      return p ? `Trade ${i} · ${p.date}` : `Trade ${i}`;
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="cumPnl"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="insight-grid">
+            <div className="insight-card">
+              <h4>Best setup</h4>
+              {bestSetup ? (
+                <>
+                  <div className={`insight-value ${signClass(bestSetup.netR)}`}>
+                    {bestSetup.key}
+                  </div>
+                  <div className="insight-meta">
+                    {bestSetup.hasPnl ? `${fmtUsd(bestSetup.netPnl)} · ` : ""}
+                    {fmtR(bestSetup.netR)} net · {fmtR(bestSetup.expectancy)} exp ·{" "}
+                    {bestSetup.count} trade{bestSetup.count === 1 ? "" : "s"}
+                  </div>
+                </>
+              ) : (
+                <div className="muted">—</div>
+              )}
+            </div>
+            <div className="insight-card">
+              <h4>Worst setup</h4>
+              {worstSetup ? (
+                <>
+                  <div className={`insight-value ${signClass(worstSetup.netR)}`}>
+                    {worstSetup.key}
+                  </div>
+                  <div className="insight-meta">
+                    {worstSetup.hasPnl ? `${fmtUsd(worstSetup.netPnl)} · ` : ""}
+                    {fmtR(worstSetup.netR)} net · {fmtR(worstSetup.expectancy)} exp ·{" "}
+                    {worstSetup.count} trade{worstSetup.count === 1 ? "" : "s"}
+                  </div>
+                </>
+              ) : (
+                <div className="muted">—</div>
+              )}
+            </div>
+            <div className="insight-card">
+              <h4>Most expensive mistake</h4>
+              {worstMistake && worstMistake.netR < 0 ? (
+                <>
+                  <div className="insight-value neg">{worstMistake.key}</div>
+                  <div className="insight-meta">
+                    {worstMistake.hasPnl ? `${fmtUsd(worstMistake.netPnl)} · ` : ""}
+                    {fmtR(worstMistake.netR)} net · {worstMistake.count} trade
+                    {worstMistake.count === 1 ? "" : "s"}
+                  </div>
+                </>
+              ) : (
+                <div className="muted">No costly mistakes logged.</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

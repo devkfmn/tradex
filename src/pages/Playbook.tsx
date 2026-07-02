@@ -3,18 +3,66 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { addSetup, deleteSetup, updateSetup } from "../services/setups";
+import { addMistake, deleteMistake, updateMistake } from "../services/mistakes";
 import { computeStats, fmtPct, fmtR, fmtUsd } from "../lib/analytics";
 import { ConfirmDialog, EmptyState, Modal } from "../components/ui";
-import type { Setup, SetupInput } from "../types";
+import type { Mistake, MistakeInput, Setup, SetupInput } from "../types";
 
-const blank: SetupInput = {
+type Tab = "setups" | "mistakes";
+
+const blankSetup: SetupInput = {
   name: "",
   rules: "",
   bestConditions: "",
   invalidConditions: "",
 };
 
+const blankMistake: MistakeInput = {
+  name: "",
+  description: "",
+};
+
 export default function Playbook() {
+  const [tab, setTab] = useState<Tab>("setups");
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Playbook</h1>
+          <p className="page-subtitle">
+            Your setup and mistake libraries with live performance stats
+          </p>
+        </div>
+      </div>
+
+      <div className="tab-bar" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "setups"}
+          className={`tab-btn ${tab === "setups" ? "active" : ""}`}
+          onClick={() => setTab("setups")}
+        >
+          Setups
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "mistakes"}
+          className={`tab-btn ${tab === "mistakes" ? "active" : ""}`}
+          onClick={() => setTab("mistakes")}
+        >
+          Mistakes
+        </button>
+      </div>
+
+      {tab === "setups" ? <SetupsTab /> : <MistakesTab />}
+    </div>
+  );
+}
+
+function SetupsTab() {
   const { user } = useAuth();
   const { trades, setups, loading, reloadSetups } = useData();
 
@@ -23,7 +71,10 @@ export default function Playbook() {
   const [toDelete, setToDelete] = useState<Setup | null>(null);
 
   const statsByName = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof computeStats> & { best: number | null; worst: number | null }>();
+    const map = new Map<
+      string,
+      ReturnType<typeof computeStats> & { best: number | null; worst: number | null }
+    >();
     for (const s of setups) {
       const linked = trades.filter(
         (t) => t.setup.trim().toLowerCase() === s.name.trim().toLowerCase()
@@ -49,12 +100,8 @@ export default function Playbook() {
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Playbook</h1>
-          <p className="page-subtitle">Your setup library and how each performs</p>
-        </div>
+    <>
+      <div className="tab-toolbar">
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           <Plus size={16} /> New Setup
         </button>
@@ -169,7 +216,134 @@ export default function Playbook() {
           onCancel={() => setToDelete(null)}
         />
       )}
-    </div>
+    </>
+  );
+}
+
+function MistakesTab() {
+  const { user } = useAuth();
+  const { trades, mistakes, loading, reloadMistakes } = useData();
+
+  const [editing, setEditing] = useState<Mistake | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [toDelete, setToDelete] = useState<Mistake | null>(null);
+
+  const statsByName = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computeStats>>();
+    for (const m of mistakes) {
+      const linked = trades.filter(
+        (t) => t.mistake.trim().toLowerCase() === m.name.trim().toLowerCase()
+      );
+      map.set(m.name.toLowerCase(), computeStats(linked));
+    }
+    return map;
+  }, [mistakes, trades]);
+
+  const handleDelete = async () => {
+    if (!user || !toDelete) return;
+    await deleteMistake(user.uid, toDelete.id);
+    await reloadMistakes();
+    setToDelete(null);
+  };
+
+  return (
+    <>
+      <div className="tab-toolbar">
+        <button className="btn btn-primary" onClick={() => setCreating(true)}>
+          <Plus size={16} /> New Mistake
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="muted">Loading…</p>
+      ) : mistakes.length === 0 ? (
+        <EmptyState
+          title="No mistakes yet"
+          hint="Define common mistakes so you can tag trades consistently and see which habits cost the most."
+          action={
+            <button className="btn btn-primary" onClick={() => setCreating(true)}>
+              <Plus size={16} /> New Mistake
+            </button>
+          }
+        />
+      ) : (
+        <div className="setup-grid">
+          {mistakes.map((m) => {
+            const st = statsByName.get(m.name.toLowerCase());
+            return (
+              <div className="card setup-card" key={m.id}>
+                <h3>{m.name}</h3>
+                <div className="setup-stat-row">
+                  <div className="setup-stat">
+                    <div className="k">Trades</div>
+                    <div className="v">{st?.count ?? 0}</div>
+                  </div>
+                  <div className="setup-stat">
+                    <div className="k">Win rate</div>
+                    <div className="v">{fmtPct(st?.winRate ?? null)}</div>
+                  </div>
+                  <div className="setup-stat">
+                    <div className="k">Net $</div>
+                    <div className="v">{st?.hasPnl ? fmtUsd(st.netPnl) : "—"}</div>
+                  </div>
+                  <div className="setup-stat">
+                    <div className="k">Net R</div>
+                    <div className="v">{fmtR(st?.netR ?? 0)}</div>
+                  </div>
+                  <div className="setup-stat">
+                    <div className="k">Expectancy</div>
+                    <div className="v">{fmtR(st?.expectancy ?? null)}</div>
+                  </div>
+                </div>
+
+                {m.description && (
+                  <div className="setup-block">
+                    <div className="k">Description</div>
+                    <div className="v">{m.description}</div>
+                  </div>
+                )}
+
+                <div className="card-actions">
+                  <button className="btn btn-sm" onClick={() => setEditing(m)}>
+                    <Pencil size={14} /> Edit
+                  </button>
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={() => setToDelete(m)}
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(creating || editing) && (
+        <MistakeForm
+          initial={editing ?? undefined}
+          onClose={() => {
+            setCreating(false);
+            setEditing(null);
+          }}
+          onSaved={async () => {
+            await reloadMistakes();
+            setCreating(false);
+            setEditing(null);
+          }}
+        />
+      )}
+
+      {toDelete && (
+        <ConfirmDialog
+          title="Delete mistake"
+          message={`Delete "${toDelete.name}"? Linked trades keep their mistake tag but lose this library entry.`}
+          onConfirm={handleDelete}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -191,7 +365,7 @@ function SetupForm({
           bestConditions: initial.bestConditions,
           invalidConditions: initial.invalidConditions,
         }
-      : blank
+      : blankSetup
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -248,6 +422,79 @@ function SetupForm({
             <textarea
               value={form.invalidConditions}
               onChange={(e) => set({ invalidConditions: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function MistakeForm({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial?: Mistake;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const [form, setForm] = useState<MistakeInput>(
+    initial
+      ? { name: initial.name, description: initial.description }
+      : blankMistake
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const set = (patch: Partial<MistakeInput>) => setForm((f) => ({ ...f, ...patch }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    if (!form.name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (initial) await updateMistake(user.uid, initial.id, form);
+      else await addMistake(user.uid, form);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save mistake.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={initial ? "Edit mistake" : "New mistake"} onClose={onClose} wide>
+      <form onSubmit={submit}>
+        {error && <div className="banner-error" style={{ marginBottom: 14 }}>{error}</div>}
+        <div className="form-grid">
+          <div className="field-full">
+            <label>Name *</label>
+            <input
+              value={form.name}
+              onChange={(e) => set({ name: e.target.value })}
+              placeholder="e.g. FOMO"
+            />
+          </div>
+          <div className="field-full">
+            <label>Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => set({ description: e.target.value })}
+              placeholder="When does this mistake happen? How to avoid it?"
             />
           </div>
         </div>

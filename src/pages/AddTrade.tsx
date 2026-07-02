@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import {
   addTrade,
+  deleteRemovedScreenshots,
   getTrade,
   updateTrade,
   uploadScreenshots,
@@ -24,6 +25,7 @@ import {
   SESSIONS,
 } from "../lib/constants";
 import { ResultBadge } from "../components/ui";
+import { canonicalName } from "../lib/filters";
 import type { Direction, Trade, TradeInput, TradePlanPrefill } from "../types";
 
 type FormState = {
@@ -114,7 +116,7 @@ export default function AddTrade() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { setups, reloadTrades } = useData();
+  const { setups, mistakes, reloadTrades } = useData();
 
   const [form, setForm] = useState<FormState>(() => {
     const base = blankForm();
@@ -124,6 +126,7 @@ export default function AddTrade() {
     return { ...base, ...prefill };
   });
   const [existingUrls, setExistingUrls] = useState<string[]>([]);
+  const [originalUrls, setOriginalUrls] = useState<string[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(isEdit);
@@ -141,7 +144,9 @@ export default function AddTrade() {
           setError("Trade not found.");
         } else {
           setForm(fromTrade(t));
-          setExistingUrls(t.screenshotUrls ?? []);
+          const urls = t.screenshotUrls ?? [];
+          setExistingUrls(urls);
+          setOriginalUrls(urls);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load trade.");
@@ -225,13 +230,13 @@ export default function AddTrade() {
       date: form.date,
       coin: form.coin.trim().toUpperCase(),
       direction: form.direction,
-      setup: form.setup.trim(),
+      setup: canonicalName(form.setup, setups),
       riskPct: num(form.riskPct),
       riskUsd: num(form.riskUsd),
       pnl: num(form.pnl),
       realizedR: effectiveRealizedR,
       grade: (form.grade as Trade["grade"]) || "",
-      mistake: form.mistake.trim(),
+      mistake: canonicalName(form.mistake, mistakes),
       postNotes: form.postNotes.trim(),
       screenshotUrls: existingUrls,
       entry: num(form.entry),
@@ -249,6 +254,8 @@ export default function AddTrade() {
 
     try {
       let tradeId = id;
+      let finalUrls = existingUrls;
+
       if (isEdit && id) {
         await updateTrade(user.uid, id, input);
       } else {
@@ -257,9 +264,14 @@ export default function AddTrade() {
 
       if (pendingFiles.length && tradeId) {
         const newUrls = await uploadScreenshots(user.uid, tradeId, pendingFiles);
+        finalUrls = [...existingUrls, ...newUrls];
         await updateTrade(user.uid, tradeId, {
-          screenshotUrls: [...existingUrls, ...newUrls],
+          screenshotUrls: finalUrls,
         });
+      }
+
+      if (isEdit && id) {
+        await deleteRemovedScreenshots(originalUrls, finalUrls);
       }
 
       await reloadTrades();
@@ -495,8 +507,8 @@ export default function AddTrade() {
                 onChange={(e) => set("mistake", e.target.value)}
               />
               <datalist id="mistake-options">
-                {COMMON_MISTAKES.map((m) => (
-                  <option key={m} value={m} />
+                {mistakes.map((m) => (
+                  <option key={m.id} value={m.name} />
                 ))}
               </datalist>
             </div>
@@ -639,17 +651,3 @@ export default function AddTrade() {
     </div>
   );
 }
-
-const COMMON_MISTAKES = [
-  "FOMO",
-  "Didn't take profits",
-  "Early exit",
-  "Late entry",
-  "No stop",
-  "Moved stop",
-  "Oversized",
-  "Revenge trade",
-  "Chased",
-  "Broke rules",
-  "Hesitation",
-];

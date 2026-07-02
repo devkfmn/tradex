@@ -24,7 +24,7 @@ type SortDir = "asc" | "desc";
 
 export default function Trades() {
   const { user } = useAuth();
-  const { trades, loading, reloadTrades } = useData();
+  const { trades, mistakes, loading, reloadTrades } = useData();
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState<TradeFilters>(emptyFilters);
@@ -94,7 +94,12 @@ export default function Trades() {
         </div>
       </div>
 
-      <FilterBar trades={trades} filters={filters} onChange={setFilters} />
+      <FilterBar
+        trades={trades}
+        filters={filters}
+        onChange={setFilters}
+        mistakeOptions={mistakes.map((m) => m.name)}
+      />
 
       <div className="toolbar">
         <button

@@ -7,15 +7,20 @@ export default function FilterBar({
   filters,
   onChange,
   showSearch = true,
+  mistakeOptions,
 }: {
   trades: Trade[];
   filters: TradeFilters;
   onChange: (f: TradeFilters) => void;
   showSearch?: boolean;
+  mistakeOptions?: string[];
 }) {
   const coins = uniqueSorted(trades.map((t) => t.coin));
   const setups = uniqueSorted(trades.map((t) => t.setup));
-  const mistakes = uniqueSorted(trades.map((t) => t.mistake));
+  const mistakes = uniqueSorted([
+    ...(mistakeOptions ?? []),
+    ...trades.map((t) => t.mistake),
+  ]);
 
   const set = (patch: Partial<TradeFilters>) =>
     onChange({ ...filters, ...patch });

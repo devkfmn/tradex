@@ -442,3 +442,74 @@
 .copy-row-btn:hover {
   color: var(--text);
 }
+
+/* ---------- tabs ---------- */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.tab-btn:hover {
+  color: var(--text);
+}
+.tab-btn.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.tab-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--sp-4);
+}
+
+/* ---------- date range ---------- */
+.date-range-bar {
+  margin-bottom: var(--sp-4);
+}
+.date-range-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.date-preset-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.date-preset-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.date-preset-btn.active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.date-range-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+.date-range-custom label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}

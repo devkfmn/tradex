@@ -154,3 +154,21 @@ export async function uploadScreenshots(
   }
   return urls;
 }
+
+/** Delete a single screenshot by its download URL. Best-effort. */
+export async function deleteScreenshotByUrl(url: string): Promise<void> {
+  try {
+    await deleteObject(ref(storage, url));
+  } catch {
+    // file may already be gone
+  }
+}
+
+/** Delete storage objects removed from a trade's screenshot list. */
+export async function deleteRemovedScreenshots(
+  previousUrls: string[],
+  nextUrls: string[]
+): Promise<void> {
+  const removed = previousUrls.filter((u) => !nextUrls.includes(u));
+  await Promise.all(removed.map((url) => deleteScreenshotByUrl(url)));
+}

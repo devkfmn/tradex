@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format, startOfWeek } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
-import { addReview, deleteReview } from "../services/reviews";
+import { addReview, deleteReview, updateReview } from "../services/reviews";
 import { computeStats, fmtPct, fmtR, fmtUsd, groupStats } from "../lib/analytics";
+import { canonicalName } from "../lib/filters";
 import { StatCard, ConfirmDialog, EmptyState } from "../components/ui";
 import type { Review as ReviewType, ReviewInput, RuleFollowed } from "../types";
 
@@ -12,24 +13,46 @@ function mondayOf(d: Date): string {
   return format(startOfWeek(d, { weekStartsOn: 1 }), "yyyy-MM-dd");
 }
 
+const blankForm = () => ({
+  bestSetup: "",
+  worstSetup: "",
+  mainMistake: "",
+  bestTrade: "",
+  worstTrade: "",
+  ruleFollowed: "" as RuleFollowed | "",
+  decisionNextWeek: "",
+});
+
 export default function Review() {
   const { user } = useAuth();
-  const { trades, reviews, loading, reloadReviews } = useData();
+  const { trades, mistakes, reviews, loading, reloadReviews } = useData();
 
   const [weekStart, setWeekStart] = useState<string>(mondayOf(new Date()));
-  const [form, setForm] = useState({
-    bestSetup: "",
-    worstSetup: "",
-    mainMistake: "",
-    bestTrade: "",
-    worstTrade: "",
-    ruleFollowed: "" as RuleFollowed | "",
-    decisionNextWeek: "",
-  });
+  const [form, setForm] = useState(blankForm);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<ReviewType | null>(null);
 
-  // trades within the selected week [weekStart, weekStart+7)
+  const existingReview = useMemo(
+    () => reviews.find((r) => r.weekStartDate === weekStart) ?? null,
+    [reviews, weekStart]
+  );
+
+  useEffect(() => {
+    if (existingReview) {
+      setForm({
+        bestSetup: existingReview.bestSetup,
+        worstSetup: existingReview.worstSetup,
+        mainMistake: existingReview.mainMistake,
+        bestTrade: existingReview.bestTrade,
+        worstTrade: existingReview.worstTrade,
+        ruleFollowed: existingReview.ruleFollowed,
+        decisionNextWeek: existingReview.decisionNextWeek,
+      });
+    } else {
+      setForm(blankForm());
+    }
+  }, [weekStart, existingReview]);
+
   const weekTrades = useMemo(() => {
     const start = weekStart;
     const startDate = new Date(weekStart + "T00:00:00");
@@ -49,7 +72,8 @@ export default function Review() {
     return { best: best?.key ?? "", worst: worst?.key ?? "" };
   }, [weekTrades]);
 
-  const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
+  const set = (patch: Partial<ReturnType<typeof blankForm>>) =>
+    setForm((f) => ({ ...f, ...patch }));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,24 +84,19 @@ export default function Review() {
       totalR: weekStats.netR,
       bestSetup: form.bestSetup.trim() || suggestions.best,
       worstSetup: form.worstSetup.trim() || suggestions.worst,
-      mainMistake: form.mainMistake.trim(),
+      mainMistake: canonicalName(form.mainMistake, mistakes),
       bestTrade: form.bestTrade.trim(),
       worstTrade: form.worstTrade.trim(),
       ruleFollowed: form.ruleFollowed,
       decisionNextWeek: form.decisionNextWeek.trim(),
     };
     try {
-      await addReview(user.uid, input);
+      if (existingReview) {
+        await updateReview(user.uid, existingReview.id, input);
+      } else {
+        await addReview(user.uid, input);
+      }
       await reloadReviews();
-      setForm({
-        bestSetup: "",
-        worstSetup: "",
-        mainMistake: "",
-        bestTrade: "",
-        worstTrade: "",
-        ruleFollowed: "",
-        decisionNextWeek: "",
-      });
     } finally {
       setSaving(false);
     }
@@ -110,6 +129,12 @@ export default function Review() {
             }
           />
         </div>
+
+        {existingReview && (
+          <p className="muted" style={{ marginTop: 0, marginBottom: 16 }}>
+            Editing saved review for week of {existingReview.weekStartDate}
+          </p>
+        )}
 
         <div className="stat-grid" style={{ marginBottom: 20 }}>
           <StatCard
@@ -150,9 +175,15 @@ export default function Review() {
             <div>
               <label>Main mistake</label>
               <input
+                list="review-mistake-options"
                 value={form.mainMistake}
                 onChange={(e) => set({ mainMistake: e.target.value })}
               />
+              <datalist id="review-mistake-options">
+                {mistakes.map((m) => (
+                  <option key={m.id} value={m.name} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label>Best trade</label>
@@ -192,7 +223,7 @@ export default function Review() {
           </div>
           <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? "Saving…" : "Save review"}
+              {saving ? "Saving…" : existingReview ? "Update review" : "Save review"}
             </button>
           </div>
         </form>
@@ -222,7 +253,14 @@ export default function Review() {
               <tbody>
                 {reviews.map((r) => (
                   <tr key={r.id}>
-                    <td className="mono">{r.weekStartDate}</td>
+                    <td
+                      className="mono"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setWeekStart(r.weekStartDate)}
+                      title="Load this week"
+                    >
+                      {r.weekStartDate}
+                    </td>
                     <td>{fmtR(r.totalR)}</td>
                     <td>{r.bestSetup || <span className="faint">—</span>}</td>
                     <td>{r.worstSetup || <span className="faint">—</span>}</td>
