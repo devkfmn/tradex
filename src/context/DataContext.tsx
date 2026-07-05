@@ -11,7 +11,7 @@ import type { Review, Setup, Trade, Mistake } from "../types";
 import { listTrades, removeLegacyTradeFields } from "../services/trades";
 import { listSetups } from "../services/setups";
 import { listReviews } from "../services/reviews";
-import { listMistakes, seedDefaultMistakes } from "../services/mistakes";
+import { listMistakes, seedDefaultMistakes, syncDefaultMistakes } from "../services/mistakes";
 
 interface DataContextValue {
   trades: Trade[];
@@ -31,6 +31,7 @@ const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 const LEGACY_FIELDS_MIGRATION_KEY = "tradex.migration.removedExitFields.v1";
 const MISTAKES_SEED_MIGRATION_KEY = "tradex.migration.seedMistakes.v1";
+const MISTAKES_SYNC_MIGRATION_KEY = "tradex.migration.syncMistakes.v2";
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -77,6 +78,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!localStorage.getItem(mistakesSeedKey)) {
         await seedDefaultMistakes(uid);
         localStorage.setItem(mistakesSeedKey, "1");
+      }
+      const mistakesSyncKey = `${MISTAKES_SYNC_MIGRATION_KEY}.${uid}`;
+      if (!localStorage.getItem(mistakesSyncKey)) {
+        await syncDefaultMistakes(uid);
+        localStorage.setItem(mistakesSyncKey, "1");
       }
       const [t, s, m, r] = await Promise.all([
         listTrades(uid),

@@ -82,3 +82,27 @@ export async function seedDefaultMistakes(uid: string): Promise<void> {
   }
   await batch.commit();
 }
+
+/** Add any default mistakes missing from the user's library. */
+export async function syncDefaultMistakes(uid: string): Promise<void> {
+  const existing = await listMistakes(uid);
+  const existingNames = new Set(
+    existing.map((m) => m.name.trim().toLowerCase())
+  );
+  const missing = DEFAULT_MISTAKES.filter(
+    (name) => !existingNames.has(name.trim().toLowerCase())
+  );
+  if (missing.length === 0) return;
+
+  const batch = writeBatch(db);
+  for (const name of missing) {
+    const ref = doc(mistakesCol(uid));
+    batch.set(ref, {
+      name,
+      description: "",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+  await batch.commit();
+}

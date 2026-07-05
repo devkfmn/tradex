@@ -36,6 +36,8 @@ export const DEFAULT_MISTAKES = [
   "Late entry",
   "No stop",
   "Moved stop",
+  "SL too Tight",
+  "Not in HTF POI",
   "Oversized",
   "Revenge trade",
   "Chased",
