@@ -1,7 +1,7 @@
 import {
   handleFuturesEquityRequest,
   type FuturesEquityRequestBody,
-} from "../_lib/mexc/equityHandler";
+} from "../_lib/mexc/equityHandler.js";
 
 type VercelRequest = {
   method?: string;

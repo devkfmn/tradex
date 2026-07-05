@@ -1,4 +1,4 @@
-import { fetchMexcFuturesEquity, MexcApiError } from "./futuresAssets";
+import { fetchMexcFuturesEquity, MexcApiError } from "./futuresAssets.js";
 
 export interface FuturesEquityRequestBody {
   apiKey?: string;
