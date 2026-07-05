@@ -1,10 +1,11 @@
-import { handleFuturesEquityHttpRequest } from "../../src/server/mexc/equityHandler";
+import {
+  handleFuturesEquityRequest,
+  type FuturesEquityRequestBody,
+} from "../../src/server/mexc/equityHandler";
 
 type VercelRequest = {
   method?: string;
-  on(event: "data", listener: (chunk: Buffer | string) => void): void;
-  on(event: "end", listener: () => void): void;
-  on(event: "error", listener: (err: Error) => void): void;
+  body?: FuturesEquityRequestBody;
 };
 
 type VercelResponse = {
@@ -13,10 +14,17 @@ type VercelResponse = {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { status, payload } = await handleFuturesEquityHttpRequest(
-    req.method,
-    req
-  );
   res.setHeader("Content-Type", "application/json");
-  res.status(status).json(payload);
+
+  try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const { status, payload } = await handleFuturesEquityRequest(req.body ?? {});
+    return res.status(status).json(payload);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Internal error";
+    return res.status(500).json({ error: message });
+  }
 }
