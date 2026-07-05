@@ -106,22 +106,24 @@ export default function Reports() {
         </div>
       </div>
 
-      <DateRangeBar
-        preset={preset}
-        customFrom={customFrom}
-        customTo={customTo}
-        onPresetChange={handlePresetChange}
-        onCustomFromChange={setCustomFrom}
-        onCustomToChange={setCustomTo}
-      />
+      <div className="filters-section">
+        <DateRangeBar
+          preset={preset}
+          customFrom={customFrom}
+          customTo={customTo}
+          onPresetChange={handlePresetChange}
+          onCustomFromChange={setCustomFrom}
+          onCustomToChange={setCustomTo}
+        />
 
-      <FilterBar
-        trades={dateFiltered}
-        filters={filters}
-        onChange={setFilters}
-        showDateFields={false}
-        mistakeOptions={mistakes.map((m) => m.name)}
-      />
+        <FilterBar
+          trades={dateFiltered}
+          filters={filters}
+          onChange={setFilters}
+          showDateFields={false}
+          mistakeOptions={mistakes.map((m) => m.name)}
+        />
+      </div>
 
       {loading ? (
         <p className="muted">Loading…</p>

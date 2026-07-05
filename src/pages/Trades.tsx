@@ -11,9 +11,22 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import DateRangeBar, {
+  loadDatePreset,
+  saveDatePreset,
+  type DatePreset,
+} from "../components/DateRangeBar";
 import { deleteTrade } from "../services/trades";
 import { fmtUsd, resultFromR, signClass } from "../lib/analytics";
-import { applyFilters, emptyFilters, type TradeFilters } from "../lib/filters";
+import {
+  applyFilters,
+  compareTradesByRecency,
+  DATE_PRESET_LABELS,
+  emptyFilters,
+  filterTradesByDateRange,
+  presetToDateRange,
+  type TradeFilters,
+} from "../lib/filters";
 import { downloadCsv, tradesToCsv } from "../lib/csv";
 import FilterBar from "../components/FilterBar";
 import { ConfirmDialog, EmptyState, ResultBadge, RCell } from "../components/ui";
@@ -28,24 +41,55 @@ export default function Trades() {
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState<TradeFilters>(emptyFilters);
+  const [preset, setPreset] = useState<DatePreset>(() => loadDatePreset());
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [toDelete, setToDelete] = useState<Trade | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const { from, to } = useMemo(() => {
+    if (preset === "custom") return { from: customFrom, to: customTo };
+    return presetToDateRange(preset);
+  }, [preset, customFrom, customTo]);
+
+  const dateFiltered = useMemo(
+    () => filterTradesByDateRange(trades, from, to),
+    [trades, from, to]
+  );
+
   const filtered = useMemo(() => {
-    const rows = applyFilters(trades, filters);
+    const rows = applyFilters(dateFiltered, filters);
     const sorted = [...rows].sort((a, b) => {
+      if (sortKey === "date") {
+        const cmp = compareTradesByRecency(a, b);
+        return sortDir === "desc" ? cmp : -cmp;
+      }
       let cmp = 0;
-      if (sortKey === "date") cmp = a.date.localeCompare(b.date);
-      else if (sortKey === "coin") cmp = a.coin.localeCompare(b.coin);
+      if (sortKey === "coin") cmp = a.coin.localeCompare(b.coin);
       else if (sortKey === "realizedR")
         cmp = (a.realizedR ?? -Infinity) - (b.realizedR ?? -Infinity);
       else if (sortKey === "pnl") cmp = (a.pnl ?? -Infinity) - (b.pnl ?? -Infinity);
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [trades, filters, sortKey, sortDir]);
+  }, [dateFiltered, filters, sortKey, sortDir]);
+
+  const rangeLabel = useMemo(() => {
+    if (preset === "custom") {
+      if (customFrom && customTo) return `${customFrom} – ${customTo}`;
+      if (customFrom) return `From ${customFrom}`;
+      if (customTo) return `Until ${customTo}`;
+      return DATE_PRESET_LABELS.custom;
+    }
+    return DATE_PRESET_LABELS[preset];
+  }, [preset, customFrom, customTo]);
+
+  const handlePresetChange = (next: DatePreset) => {
+    setPreset(next);
+    saveDatePreset(next);
+  };
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -76,12 +120,12 @@ export default function Trades() {
   };
 
   return (
-    <div className="page">
+    <div className="page section-stack">
       <div className="page-header">
         <div>
           <h1 className="page-title">Trades</h1>
           <p className="page-subtitle">
-            {filtered.length} of {trades.length} trades
+            {rangeLabel} · {filtered.length} of {trades.length} trades
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -94,20 +138,32 @@ export default function Trades() {
         </div>
       </div>
 
-      <FilterBar
-        trades={trades}
-        filters={filters}
-        onChange={setFilters}
-        mistakeOptions={mistakes.map((m) => m.name)}
-      />
+      <div className="filters-section">
+        <DateRangeBar
+          preset={preset}
+          customFrom={customFrom}
+          customTo={customTo}
+          onPresetChange={handlePresetChange}
+          onCustomFromChange={setCustomFrom}
+          onCustomToChange={setCustomTo}
+        />
 
-      <div className="toolbar">
-        <button
-          className="btn btn-sm btn-ghost"
-          onClick={() => setFilters(emptyFilters)}
-        >
-          <RotateCcw size={14} /> Reset filters
-        </button>
+        <FilterBar
+          trades={dateFiltered}
+          filters={filters}
+          onChange={setFilters}
+          showDateFields={false}
+          mistakeOptions={mistakes.map((m) => m.name)}
+        />
+
+        <div className="toolbar">
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => setFilters(emptyFilters)}
+          >
+            <RotateCcw size={14} /> Reset filters
+          </button>
+        </div>
       </div>
 
       {loading ? (

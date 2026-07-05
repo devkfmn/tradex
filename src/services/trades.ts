@@ -20,6 +20,7 @@ import {
   ref,
   uploadBytes,
 } from "firebase/storage";
+import { compareTradesByRecency } from "../lib/filters";
 import { db, storage } from "../lib/firebase";
 import type { Trade, TradeInput } from "../types";
 
@@ -88,7 +89,7 @@ function clean<T extends Record<string, unknown>>(obj: T): Record<string, unknow
 export async function listTrades(uid: string): Promise<Trade[]> {
   const q = query(tradesCol(uid), orderBy("date", "desc"));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => fromDoc(d.id, d.data()));
+  return snap.docs.map((d) => fromDoc(d.id, d.data())).sort(compareTradesByRecency);
 }
 
 export async function getTrade(uid: string, id: string): Promise<Trade | null> {
@@ -158,6 +159,31 @@ export async function migrateMistakesToArray(uid: string): Promise<void> {
         mistakes,
         mistake: deleteField(),
       });
+      pending++;
+    }
+    if (pending > 0) await batch.commit();
+  }
+}
+
+/** One-time migration: backfill createdAt on trades missing it. */
+export async function migrateCreatedAtTimestamps(uid: string): Promise<void> {
+  const snap = await getDocs(tradesCol(uid));
+  if (snap.empty) return;
+
+  const batchSize = 500;
+  for (let i = 0; i < snap.docs.length; i += batchSize) {
+    const batch = writeBatch(db);
+    let pending = 0;
+    for (const d of snap.docs.slice(i, i + batchSize)) {
+      const data = d.data();
+      if (data.createdAt != null) continue;
+      const patch: Record<string, unknown> = {
+        createdAt: data.updatedAt ?? serverTimestamp(),
+      };
+      if (data.updatedAt == null) {
+        patch.updatedAt = serverTimestamp();
+      }
+      batch.update(d.ref, patch);
       pending++;
     }
     if (pending > 0) await batch.commit();
