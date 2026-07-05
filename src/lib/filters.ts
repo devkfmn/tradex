@@ -68,13 +68,13 @@ export function applyFilters(trades: Trade[], f: TradeFilters): Trade[] {
     if (f.direction && t.direction !== f.direction) return false;
     if (f.setup && t.setup !== f.setup) return false;
     if (f.grade && t.grade !== f.grade) return false;
-    if (f.mistake && t.mistake !== f.mistake) return false;
+    if (f.mistake && !t.mistakes.includes(f.mistake)) return false;
     if (f.result) {
       const r = resultFromR(t.realizedR);
       if (r !== f.result) return false;
     }
     if (search) {
-      const hay = [t.coin, t.setup, t.mistake, t.postNotes, t.thesis]
+      const hay = [t.coin, t.setup, ...t.mistakes, t.postNotes, t.thesis]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -103,4 +103,22 @@ export function canonicalName(
     (item) => item.name.trim().toLowerCase() === trimmed.toLowerCase()
   );
   return match?.name ?? trimmed;
+}
+
+/** Resolve and dedupe multiple labels to canonical library names. */
+export function canonicalNames(
+  values: string[],
+  library: { name: string }[]
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const name = canonicalName(value, library);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }

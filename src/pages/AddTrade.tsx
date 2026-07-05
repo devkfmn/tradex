@@ -25,7 +25,7 @@ import {
   SESSIONS,
 } from "../lib/constants";
 import { ResultBadge } from "../components/ui";
-import { canonicalName } from "../lib/filters";
+import { canonicalName, canonicalNames } from "../lib/filters";
 import type { Direction, Trade, TradeInput, TradePlanPrefill } from "../types";
 
 type FormState = {
@@ -45,7 +45,7 @@ type FormState = {
   pnl: string;
   realizedR: string;
   grade: string;
-  mistake: string;
+  mistakes: string[];
   exitReason: string;
   maxFavorableR: string;
   maxAdverseR: string;
@@ -69,7 +69,7 @@ const blankForm = (): FormState => ({
   pnl: "",
   realizedR: "",
   grade: "",
-  mistake: "",
+  mistakes: [],
   exitReason: "",
   maxFavorableR: "",
   maxAdverseR: "",
@@ -102,7 +102,7 @@ function fromTrade(t: Trade): FormState {
     pnl: s(t.pnl),
     realizedR: s(t.realizedR),
     grade: t.grade ?? "",
-    mistake: t.mistake ?? "",
+    mistakes: [...(t.mistakes ?? [])],
     exitReason: t.exitReason ?? "",
     maxFavorableR: s(t.maxFavorableR),
     maxAdverseR: s(t.maxAdverseR),
@@ -132,6 +132,7 @@ export default function AddTrade() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customMistake, setCustomMistake] = useState("");
 
   useEffect(() => {
     if (!isEdit || !user || !id) return;
@@ -161,6 +162,29 @@ export default function AddTrade() {
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  const toggleMistake = (name: string) => {
+    setForm((f) => {
+      const key = name.toLowerCase();
+      const selected = f.mistakes.some((m) => m.toLowerCase() === key);
+      return {
+        ...f,
+        mistakes: selected
+          ? f.mistakes.filter((m) => m.toLowerCase() !== key)
+          : [...f.mistakes, name],
+      };
+    });
+  };
+
+  const addCustomMistake = () => {
+    const name = canonicalNames([customMistake], mistakes)[0];
+    if (!name) return;
+    setForm((f) => {
+      if (f.mistakes.some((m) => m.toLowerCase() === name.toLowerCase())) return f;
+      return { ...f, mistakes: [...f.mistakes, name] };
+    });
+    setCustomMistake("");
+  };
 
   // derived values
   const derivedPlannedR = useMemo(
@@ -236,7 +260,7 @@ export default function AddTrade() {
       pnl: num(form.pnl),
       realizedR: effectiveRealizedR,
       grade: (form.grade as Trade["grade"]) || "",
-      mistake: canonicalName(form.mistake, mistakes),
+      mistakes: canonicalNames(form.mistakes, mistakes),
       postNotes: form.postNotes.trim(),
       screenshotUrls: existingUrls,
       entry: num(form.entry),
@@ -498,14 +522,64 @@ export default function AddTrade() {
                 ))}
               </select>
             </div>
-            <div>
-              <label>Mistake tag</label>
-              <input
-                list="mistake-options"
-                placeholder="e.g. FOMO, early exit"
-                value={form.mistake}
-                onChange={(e) => set("mistake", e.target.value)}
-              />
+            <div className="field-full">
+              <label>Mistake tags</label>
+              <div className="tag-chip-row">
+                {mistakes.map((m) => {
+                  const selected = form.mistakes.some(
+                    (tag) => tag.toLowerCase() === m.name.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`tag-chip${selected ? " selected" : ""}`}
+                      onClick={() => toggleMistake(m.name)}
+                    >
+                      {m.name}
+                    </button>
+                  );
+                })}
+                {form.mistakes
+                  .filter(
+                    (tag) =>
+                      !mistakes.some(
+                        (m) => m.name.toLowerCase() === tag.toLowerCase()
+                      )
+                  )
+                  .map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="tag-chip selected"
+                      onClick={() => toggleMistake(tag)}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+              </div>
+              <div className="tag-chip-add">
+                <input
+                  list="mistake-options"
+                  placeholder="Add custom tag"
+                  value={customMistake}
+                  onChange={(e) => setCustomMistake(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustomMistake();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={addCustomMistake}
+                  disabled={!customMistake.trim()}
+                >
+                  Add
+                </button>
+              </div>
               <datalist id="mistake-options">
                 {mistakes.map((m) => (
                   <option key={m.id} value={m.name} />

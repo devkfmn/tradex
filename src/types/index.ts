@@ -30,7 +30,7 @@ export interface Trade {
   pnl: number | null;
   realizedR: number | null;
   grade: Grade | "";
-  mistake: string;
+  mistakes: string[];
   postNotes: string;
   screenshotUrls: string[];
 

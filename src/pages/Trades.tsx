@@ -185,8 +185,14 @@ export default function Trades() {
                   </td>
                   <td>{t.grade || <span className="faint">—</span>}</td>
                   <td>
-                    {t.mistake ? (
-                      <span className="tag">{t.mistake}</span>
+                    {t.mistakes.length ? (
+                      <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
+                        {t.mistakes.map((m) => (
+                          <span key={m} className="tag">
+                            {m}
+                          </span>
+                        ))}
+                      </span>
                     ) : (
                       <span className="faint">—</span>
                     )}

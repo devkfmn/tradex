@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useAuth } from "./AuthContext";
 import type { Review, Setup, Trade, Mistake } from "../types";
-import { listTrades, removeLegacyTradeFields } from "../services/trades";
+import { listTrades, migrateMistakesToArray, removeLegacyTradeFields } from "../services/trades";
 import { listSetups } from "../services/setups";
 import { listReviews } from "../services/reviews";
 import { listMistakes, seedDefaultMistakes, syncDefaultMistakes } from "../services/mistakes";
@@ -32,6 +32,7 @@ const DataContext = createContext<DataContextValue | undefined>(undefined);
 const LEGACY_FIELDS_MIGRATION_KEY = "tradex.migration.removedExitFields.v1";
 const MISTAKES_SEED_MIGRATION_KEY = "tradex.migration.seedMistakes.v1";
 const MISTAKES_SYNC_MIGRATION_KEY = "tradex.migration.syncMistakes.v2";
+const MISTAKES_ARRAY_MIGRATION_KEY = "tradex.migration.mistakesArray.v1";
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -83,6 +84,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!localStorage.getItem(mistakesSyncKey)) {
         await syncDefaultMistakes(uid);
         localStorage.setItem(mistakesSyncKey, "1");
+      }
+      const mistakesArrayKey = `${MISTAKES_ARRAY_MIGRATION_KEY}.${uid}`;
+      if (!localStorage.getItem(mistakesArrayKey)) {
+        await migrateMistakesToArray(uid);
+        localStorage.setItem(mistakesArrayKey, "1");
       }
       const [t, s, m, r] = await Promise.all([
         listTrades(uid),

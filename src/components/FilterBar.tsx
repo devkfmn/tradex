@@ -19,7 +19,7 @@ export default function FilterBar({
   const setups = uniqueSorted(trades.map((t) => t.setup));
   const mistakes = uniqueSorted([
     ...(mistakeOptions ?? []),
-    ...trades.map((t) => t.mistake),
+    ...trades.flatMap((t) => t.mistakes),
   ]);
 
   const set = (patch: Partial<TradeFilters>) =>

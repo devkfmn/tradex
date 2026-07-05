@@ -33,6 +33,18 @@ function tsToMillis(v: unknown): number | null {
   return null;
 }
 
+export function normalizeMistakes(data: Record<string, unknown>): string[] {
+  if (Array.isArray(data.mistakes)) {
+    const names = data.mistakes
+      .filter((m): m is string => typeof m === "string" && m.trim().length > 0)
+      .map((m) => m.trim());
+    return [...new Set(names)];
+  }
+  const legacy = data.mistake;
+  if (typeof legacy === "string" && legacy.trim()) return [legacy.trim()];
+  return [];
+}
+
 function fromDoc(id: string, data: Record<string, unknown>): Trade {
   return {
     id,
@@ -45,7 +57,7 @@ function fromDoc(id: string, data: Record<string, unknown>): Trade {
     pnl: (data.pnl as number) ?? null,
     realizedR: (data.realizedR as number) ?? null,
     grade: (data.grade as Trade["grade"]) ?? "",
-    mistake: (data.mistake as string) ?? "",
+    mistakes: normalizeMistakes(data),
     postNotes: (data.postNotes as string) ?? "",
     screenshotUrls: (data.screenshotUrls as string[]) ?? [],
     entry: (data.entry as number) ?? null,
@@ -124,6 +136,31 @@ export async function removeLegacyTradeFields(uid: string): Promise<void> {
       batch.update(d.ref, LEGACY_TRADE_FIELDS);
     }
     await batch.commit();
+  }
+}
+
+/** One-time migration: move legacy `mistake` string to `mistakes` array. */
+export async function migrateMistakesToArray(uid: string): Promise<void> {
+  const snap = await getDocs(tradesCol(uid));
+  if (snap.empty) return;
+
+  const batchSize = 500;
+  for (let i = 0; i < snap.docs.length; i += batchSize) {
+    const batch = writeBatch(db);
+    let pending = 0;
+    for (const d of snap.docs.slice(i, i + batchSize)) {
+      const data = d.data();
+      if (Array.isArray(data.mistakes)) continue;
+      const legacy = data.mistake;
+      const mistakes =
+        typeof legacy === "string" && legacy.trim() ? [legacy.trim()] : [];
+      batch.update(d.ref, {
+        mistakes,
+        mistake: deleteField(),
+      });
+      pending++;
+    }
+    if (pending > 0) await batch.commit();
   }
 }
 

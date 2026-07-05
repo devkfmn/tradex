@@ -231,8 +231,10 @@ function MistakesTab() {
   const statsByName = useMemo(() => {
     const map = new Map<string, ReturnType<typeof computeStats>>();
     for (const m of mistakes) {
-      const linked = trades.filter(
-        (t) => t.mistake.trim().toLowerCase() === m.name.trim().toLowerCase()
+      const linked = trades.filter((t) =>
+        t.mistakes.some(
+          (tag) => tag.trim().toLowerCase() === m.name.trim().toLowerCase()
+        )
       );
       map.set(m.name.toLowerCase(), computeStats(linked));
     }
@@ -338,7 +340,7 @@ function MistakesTab() {
       {toDelete && (
         <ConfirmDialog
           title="Delete mistake"
-          message={`Delete "${toDelete.name}"? Linked trades keep their mistake tag but lose this library entry.`}
+          message={`Delete "${toDelete.name}"? Linked trades keep their mistake tags but lose this library entry.`}
           onConfirm={handleDelete}
           onCancel={() => setToDelete(null)}
         />

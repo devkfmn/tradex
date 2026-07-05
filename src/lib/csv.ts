@@ -35,7 +35,7 @@ export function tradesToCsv(trades: Trade[]): string {
     t.pnl ?? "",
     t.realizedR ?? "",
     t.grade,
-    t.mistake,
+    t.mistakes.join("; "),
     t.postNotes,
   ]);
   return [HEADERS, ...rows].map((r) => r.map(esc).join(",")).join("\n");

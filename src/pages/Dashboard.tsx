@@ -20,6 +20,7 @@ import {
   computeStats,
   cumulativePnlCurve,
   cumulativeRCurve,
+  expandTradesByMistake,
   fmtNum,
   fmtPct,
   fmtR,
@@ -84,10 +85,7 @@ export default function Dashboard() {
   );
   const mistakeGroups = useMemo(
     () =>
-      groupStats(
-        filteredTrades.filter((t) => t.mistake && t.mistake.trim()),
-        (t) => t.mistake
-      ),
+      groupStats(expandTradesByMistake(filteredTrades), (t) => t.mistakes[0]),
     [filteredTrades]
   );
 

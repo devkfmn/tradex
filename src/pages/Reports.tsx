@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
 import {
   computeStats,
+  expandTradesByMistake,
   fmtNum,
   fmtPct,
   fmtR,
@@ -30,10 +31,9 @@ export default function Reports() {
   );
   const mistakeStats = useMemo(
     () =>
-      groupStats(
-        filtered.filter((t) => t.mistake && t.mistake.trim()),
-        (t) => t.mistake
-      ).sort((a, b) => a.netR - b.netR),
+      groupStats(expandTradesByMistake(filtered), (t) => t.mistakes[0]).sort(
+        (a, b) => a.netR - b.netR
+      ),
     [filtered]
   );
   const coinStats = useMemo(

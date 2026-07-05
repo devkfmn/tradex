@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeStats, maxDrawdown } from "./analytics";
+import { computeStats, expandTradesByMistake, maxDrawdown } from "./analytics";
 import type { Trade } from "../types";
 
 function trade(id: string, date: string, realizedR: number): Trade {
@@ -14,7 +14,7 @@ function trade(id: string, date: string, realizedR: number): Trade {
     pnl: null,
     realizedR,
     grade: "",
-    mistake: "",
+    mistakes: [],
     postNotes: "",
     screenshotUrls: [],
   };
@@ -46,5 +46,22 @@ describe("computeStats", () => {
     const stats = computeStats(trades);
     // Chronological: -2, +3, -2 => peak 1, trough -1 => max dd 2
     expect(stats.maxDrawdown).toBe(2);
+  });
+});
+
+describe("expandTradesByMistake", () => {
+  it("duplicates a trade once per mistake tag", () => {
+    const base: Trade = {
+      ...trade("a", "2025-01-01", -1),
+      mistakes: ["FOMO", "SL too Tight"],
+    };
+    const expanded = expandTradesByMistake([base]);
+    expect(expanded).toHaveLength(2);
+    expect(expanded.map((t) => t.mistakes[0])).toEqual(["FOMO", "SL too Tight"]);
+    expect(expanded.every((t) => t.realizedR === -1)).toBe(true);
+  });
+
+  it("skips trades with no mistakes", () => {
+    expect(expandTradesByMistake([trade("a", "2025-01-01", -1)])).toEqual([]);
   });
 });

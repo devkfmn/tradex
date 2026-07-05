@@ -52,6 +52,15 @@ export function tradesWithPnl(trades: Trade[]): { trade: Trade; pnl: number }[] 
     .map((t) => ({ trade: t, pnl: t.pnl as number }));
 }
 
+/** Duplicate each trade once per mistake tag for grouped mistake stats. */
+export function expandTradesByMistake(trades: Trade[]): Trade[] {
+  return trades.flatMap((t) =>
+    t.mistakes.length
+      ? t.mistakes.map((mistake) => ({ ...t, mistakes: [mistake] }))
+      : []
+  );
+}
+
 export interface Stats {
   count: number;
   netR: number;
