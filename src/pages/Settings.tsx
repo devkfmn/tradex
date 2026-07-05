@@ -1,7 +1,7 @@
-import { format } from "date-fns";
 import { Download, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
+import { todayDisplay } from "../lib/dates";
 import { firebaseConfigStatus } from "../lib/firebase";
 import { downloadCsv, tradesToCsv } from "../lib/csv";
 
@@ -12,7 +12,7 @@ export default function Settings() {
 
   const exportAll = () => {
     const csv = tradesToCsv(trades);
-    downloadCsv(`tradex-all-trades-${format(new Date(), "yyyy-MM-dd")}.csv`, csv);
+    downloadCsv(`tradex-all-trades-${todayDisplay()}.csv`, csv);
   };
 
   return (

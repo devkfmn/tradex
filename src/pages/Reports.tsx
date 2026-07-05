@@ -18,9 +18,9 @@ import {
   weekdayStats,
   type GroupStat,
 } from "../lib/analytics";
+import { formatDateRangeLabel } from "../lib/dates";
 import {
   applyFilters,
-  DATE_PRESET_LABELS,
   emptyFilters,
   filterTradesByDateRange,
   presetToDateRange,
@@ -51,15 +51,10 @@ export default function Reports() {
     [dateFiltered, filters]
   );
 
-  const rangeLabel = useMemo(() => {
-    if (preset === "custom") {
-      if (customFrom && customTo) return `${customFrom} – ${customTo}`;
-      if (customFrom) return `From ${customFrom}`;
-      if (customTo) return `Until ${customTo}`;
-      return DATE_PRESET_LABELS.custom;
-    }
-    return DATE_PRESET_LABELS[preset];
-  }, [preset, customFrom, customTo]);
+  const rangeLabel = useMemo(
+    () => formatDateRangeLabel(preset, customFrom, customTo),
+    [preset, customFrom, customTo]
+  );
 
   const handlePresetChange = (next: DatePreset) => {
     setPreset(next);

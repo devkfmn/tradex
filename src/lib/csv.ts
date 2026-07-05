@@ -1,4 +1,5 @@
 import type { Trade } from "../types";
+import { fmtDate } from "./dates";
 import { resultFromR } from "./analytics";
 
 function esc(value: unknown): string {
@@ -25,7 +26,7 @@ const HEADERS = [
 
 export function tradesToCsv(trades: Trade[]): string {
   const rows = trades.map((t) => [
-    t.date,
+    fmtDate(t.date),
     t.coin,
     t.direction,
     resultFromR(t.realizedR) ?? "",

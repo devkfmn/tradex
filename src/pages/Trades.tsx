@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { format } from "date-fns";
+import { fmtDate, formatDateRangeLabel, todayDisplay } from "../lib/dates";
 import {
   Download,
   Pencil,
@@ -21,7 +21,6 @@ import { fmtUsd, resultFromR, signClass } from "../lib/analytics";
 import {
   applyFilters,
   compareTradesByRecency,
-  DATE_PRESET_LABELS,
   emptyFilters,
   filterTradesByDateRange,
   presetToDateRange,
@@ -76,15 +75,10 @@ export default function Trades() {
     return sorted;
   }, [dateFiltered, filters, sortKey, sortDir]);
 
-  const rangeLabel = useMemo(() => {
-    if (preset === "custom") {
-      if (customFrom && customTo) return `${customFrom} – ${customTo}`;
-      if (customFrom) return `From ${customFrom}`;
-      if (customTo) return `Until ${customTo}`;
-      return DATE_PRESET_LABELS.custom;
-    }
-    return DATE_PRESET_LABELS[preset];
-  }, [preset, customFrom, customTo]);
+  const rangeLabel = useMemo(
+    () => formatDateRangeLabel(preset, customFrom, customTo),
+    [preset, customFrom, customTo]
+  );
 
   const handlePresetChange = (next: DatePreset) => {
     setPreset(next);
@@ -116,7 +110,7 @@ export default function Trades() {
 
   const exportCsv = () => {
     const csv = tradesToCsv(filtered);
-    downloadCsv(`tradex-trades-${format(new Date(), "yyyy-MM-dd")}.csv`, csv);
+    downloadCsv(`tradex-trades-${todayDisplay()}.csv`, csv);
   };
 
   return (
@@ -216,7 +210,7 @@ export default function Trades() {
                   onClick={() => navigate(`/trades/${t.id}/edit`)}
                   style={{ cursor: "pointer" }}
                 >
-                  <td className="mono">{t.date}</td>
+                  <td className="mono">{fmtDate(t.date)}</td>
                   <td>{t.coin}</td>
                   <td>
                     <span
@@ -304,7 +298,7 @@ export default function Trades() {
       {toDelete && (
         <ConfirmDialog
           title="Delete trade"
-          message={`Delete the ${toDelete.coin} trade from ${toDelete.date}? This also removes its screenshots and cannot be undone.`}
+          message={`Delete the ${toDelete.coin} trade from ${fmtDate(toDelete.date)}? This also removes its screenshots and cannot be undone.`}
           onConfirm={busy ? () => {} : handleDelete}
           onCancel={() => (busy ? null : setToDelete(null))}
         />

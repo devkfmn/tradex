@@ -213,7 +213,7 @@ export default function Calendar() {
                 }}
               >
                 <h3 style={{ fontSize: 15 }}>
-                  {format(new Date(selected + "T00:00:00"), "EEEE, MMM d, yyyy")}
+                  {format(new Date(selected + "T00:00:00"), "EEEE, dd-MM-yyyy")}
                 </h3>
                 <button
                   className="btn btn-sm btn-ghost"

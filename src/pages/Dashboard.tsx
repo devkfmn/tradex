@@ -28,11 +28,8 @@ import {
   groupStats,
   signClass,
 } from "../lib/analytics";
-import {
-  DATE_PRESET_LABELS,
-  filterTradesByDateRange,
-  presetToDateRange,
-} from "../lib/filters";
+import { fmtDate, formatDateRangeLabel } from "../lib/dates";
+import { filterTradesByDateRange, presetToDateRange } from "../lib/filters";
 import { StatCard, EmptyState } from "../components/ui";
 
 function fmtUsdCompact(n: number): string {
@@ -60,15 +57,10 @@ export default function Dashboard() {
     [trades, from, to]
   );
 
-  const rangeLabel = useMemo(() => {
-    if (preset === "custom") {
-      if (customFrom && customTo) return `${customFrom} – ${customTo}`;
-      if (customFrom) return `From ${customFrom}`;
-      if (customTo) return `Until ${customTo}`;
-      return DATE_PRESET_LABELS.custom;
-    }
-    return DATE_PRESET_LABELS[preset];
-  }, [preset, customFrom, customTo]);
+  const rangeLabel = useMemo(
+    () => formatDateRangeLabel(preset, customFrom, customTo),
+    [preset, customFrom, customTo]
+  );
 
   const handlePresetChange = (next: DatePreset) => {
     setPreset(next);
@@ -224,7 +216,7 @@ export default function Dashboard() {
                     formatter={(value: number) => [`${value}R`, "Cumulative"]}
                     labelFormatter={(i) => {
                       const p = curve[(i as number) - 1];
-                      return p ? `Trade ${i} · ${p.date}` : `Trade ${i}`;
+                      return p ? `Trade ${i} · ${fmtDate(p.date)}` : `Trade ${i}`;
                     }}
                   />
                   <Line
@@ -271,7 +263,7 @@ export default function Dashboard() {
                     formatter={(value: number) => [fmtUsd(value), "Cumulative"]}
                     labelFormatter={(i) => {
                       const p = pnlCurve[(i as number) - 1];
-                      return p ? `Trade ${i} · ${p.date}` : `Trade ${i}`;
+                      return p ? `Trade ${i} · ${fmtDate(p.date)}` : `Trade ${i}`;
                     }}
                   />
                   <Line

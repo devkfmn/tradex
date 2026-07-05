@@ -20,7 +20,7 @@ export type ExitReason =
 
 export interface Trade {
   id: string;
-  date: string; // ISO date string (yyyy-MM-dd)
+  date: string; // ISO storage format (yyyy-MM-dd); display via fmtDate()
   coin: string;
   direction: Direction;
   setup: string;
