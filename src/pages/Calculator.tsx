@@ -1,20 +1,27 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Check, Copy } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Check, Copy, RefreshCw } from "lucide-react";
 import { StatCard } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
+import { EXCHANGES } from "../lib/constants";
 import { fmtNum, fmtPct, fmtUsd } from "../lib/analytics";
-import type { TradePlanPrefill } from "../types";
+import { fetchMexcFuturesEquity } from "../lib/mexcClient";
+import { getExchangeCredentials } from "../services/exchangeCredentials";
+import type { ExchangeId, TradePlanPrefill } from "../types";
 
 const LEVERAGE_BUFFER = 1.25; // validation: liquidation should be 25% farther than the stop
 const MAX_LEVERAGE = 125;
 
 const STORAGE_KEYS = {
   balance: "tradex.calc.balance",
+  exchange: "tradex.calc.exchange",
   riskPct: "tradex.calc.riskPct",
   entry: "tradex.calc.entry",
   stop: "tradex.calc.stop",
   target: "tradex.calc.target",
 };
+
+type BalanceStatus = "idle" | "loading" | "success" | "error";
 
 function usePersistentState(key: string): [string, (v: string) => void] {
   const [value, setValue] = useState(() => {
@@ -166,22 +173,109 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 
 export default function Calculator() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [balance, setBalance] = usePersistentState(STORAGE_KEYS.balance);
+  const [exchangeRaw, setExchangeRaw] = usePersistentState(STORAGE_KEYS.exchange);
   const [riskPct, setRiskPct] = usePersistentState(STORAGE_KEYS.riskPct);
   const [entry, setEntry] = usePersistentState(STORAGE_KEYS.entry);
   const [stop, setStop] = usePersistentState(STORAGE_KEYS.stop);
   const [target, setTarget] = usePersistentState(STORAGE_KEYS.target);
 
+  const exchange: ExchangeId = exchangeRaw === "mexc" ? "mexc" : "";
+
+  const setExchange = (id: ExchangeId) => {
+    setExchangeRaw(id);
+  };
+
+  const [mexcCredentials, setMexcCredentials] = useState<{
+    apiKey: string;
+    apiSecret: string;
+  } | null>(null);
+  const [credsLoaded, setCredsLoaded] = useState(false);
+  const [liveEquity, setLiveEquity] = useState<number | null>(null);
+  const [balanceStatus, setBalanceStatus] = useState<BalanceStatus>("idle");
+  const [balanceError, setBalanceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setMexcCredentials(null);
+      setCredsLoaded(true);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const creds = await getExchangeCredentials(user.uid);
+        if (!active) return;
+        setMexcCredentials(creds.mexc ?? null);
+      } catch {
+        if (active) setMexcCredentials(null);
+      } finally {
+        if (active) setCredsLoaded(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const refreshLiveEquity = useCallback(async () => {
+    if (exchange !== "mexc" || !mexcCredentials) {
+      setLiveEquity(null);
+      setBalanceStatus("idle");
+      setBalanceError(null);
+      return;
+    }
+
+    setBalanceStatus("loading");
+    setBalanceError(null);
+    try {
+      const equity = await fetchMexcFuturesEquity(
+        mexcCredentials.apiKey,
+        mexcCredentials.apiSecret
+      );
+      setLiveEquity(equity);
+      setBalanceStatus("success");
+    } catch (err) {
+      setLiveEquity(null);
+      setBalanceStatus("error");
+      setBalanceError(
+        err instanceof Error ? err.message : "Failed to fetch balance"
+      );
+    }
+  }, [exchange, mexcCredentials]);
+
+  useEffect(() => {
+    if (exchange !== "mexc" || !credsLoaded) {
+      setLiveEquity(null);
+      setBalanceStatus("idle");
+      setBalanceError(null);
+      return;
+    }
+    if (!mexcCredentials) {
+      setLiveEquity(null);
+      setBalanceStatus("idle");
+      setBalanceError(null);
+      return;
+    }
+    void refreshLiveEquity();
+  }, [exchange, mexcCredentials, credsLoaded, refreshLiveEquity]);
+
+  const useLiveBalance =
+    exchange === "mexc" && balanceStatus === "success" && liveEquity != null;
+
+  const effectiveBalance = useLiveBalance ? liveEquity : num(balance);
+
   const calc = useMemo(
     () =>
       compute(
-        num(balance),
+        effectiveBalance,
         num(riskPct),
         num(entry),
         num(stop),
         num(target)
       ),
-    [balance, riskPct, entry, stop, target]
+    [effectiveBalance, riskPct, entry, stop, target]
   );
 
   const dash = "—";
@@ -199,6 +293,11 @@ export default function Calculator() {
     navigate("/trades/new", { state: prefill });
   };
 
+  const showReadOnlyBalance =
+    exchange === "mexc" &&
+    mexcCredentials &&
+    (balanceStatus === "loading" || balanceStatus === "success");
+
   return (
     <div className="page">
       <div className="page-header">
@@ -214,14 +313,79 @@ export default function Calculator() {
         <div className="section-title">Inputs</div>
         <div className="form-grid">
           <div>
-            <label>Account Balance (USDT)</label>
-            <input
-              type="number"
-              step="any"
-              placeholder="1000"
-              value={balance}
-              onChange={(e) => setBalance(e.target.value)}
-            />
+            <label htmlFor="calc-exchange">Exchange</label>
+            <select
+              id="calc-exchange"
+              value={exchange}
+              onChange={(e) => setExchange(e.target.value as ExchangeId)}
+            >
+              {EXCHANGES.map(({ id, label }) => (
+                <option key={id || "manual"} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="calc-balance">Account Balance (USDT)</label>
+            {showReadOnlyBalance ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  id="calc-balance"
+                  type="text"
+                  readOnly
+                  value={
+                    balanceStatus === "loading"
+                      ? "Loading…"
+                      : liveEquity != null
+                        ? fmtNum(liveEquity)
+                        : dash
+                  }
+                  style={{ flex: 1 }}
+                />
+                {balanceStatus === "success" && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => void refreshLiveEquity()}
+                    aria-label="Refresh balance"
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <input
+                id="calc-balance"
+                type="number"
+                step="any"
+                placeholder="1000"
+                value={balance}
+                onChange={(e) => setBalance(e.target.value)}
+              />
+            )}
+            {exchange === "mexc" && !mexcCredentials && credsLoaded && (
+              <div className="computed">
+                <Link to="/settings">Add MEXC credentials in Settings</Link> to
+                load balance automatically.
+              </div>
+            )}
+            {exchange === "mexc" && balanceStatus === "error" && balanceError && (
+              <div className="computed" style={{ color: "var(--red)" }}>
+                {balanceError}{" "}
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ padding: 0, fontSize: "inherit" }}
+                  onClick={() => void refreshLiveEquity()}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {useLiveBalance && (
+              <div className="computed">Live futures equity from MEXC</div>
+            )}
           </div>
           <div>
             <label>Risk %</label>

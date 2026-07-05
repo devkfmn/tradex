@@ -1,5 +1,6 @@
 import type {
   Direction,
+  ExchangeId,
   ExitReason,
   Grade,
   MarketCondition,
@@ -27,6 +28,11 @@ export const EXIT_REASONS: ExitReason[] = [
   "Invalidation",
   "Partial",
   "Other",
+];
+
+export const EXCHANGES: { id: ExchangeId; label: string }[] = [
+  { id: "", label: "Manual" },
+  { id: "mexc", label: "MEXC" },
 ];
 
 export const DEFAULT_MISTAKES = [

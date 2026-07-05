@@ -82,3 +82,14 @@ export interface Mistake {
 }
 
 export type MistakeInput = Omit<Mistake, "id">;
+
+export type ExchangeId = "" | "mexc";
+
+export interface MexcCredentials {
+  apiKey: string;
+  apiSecret: string;
+}
+
+export interface ExchangeCredentials {
+  mexc?: MexcCredentials & { updatedAt?: number | null };
+}

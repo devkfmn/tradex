@@ -1,18 +1,111 @@
-import { Download, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Eye, EyeOff, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { todayDisplay } from "../lib/dates";
 import { firebaseConfigStatus } from "../lib/firebase";
 import { downloadCsv, tradesToCsv } from "../lib/csv";
+import { fmtUsd } from "../lib/analytics";
+import { fetchMexcFuturesEquity } from "../lib/mexcClient";
+import {
+  clearMexcCredentials,
+  getExchangeCredentials,
+  saveMexcCredentials,
+} from "../services/exchangeCredentials";
 
 export default function Settings() {
   const { user, logout } = useAuth();
   const { trades } = useData();
   const config = firebaseConfigStatus();
 
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+  const [loadingCreds, setLoadingCreds] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [hasStoredCreds, setHasStoredCreds] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setLoadingCreds(false);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const creds = await getExchangeCredentials(user.uid);
+        if (!active) return;
+        if (creds.mexc) {
+          setApiKey(creds.mexc.apiKey);
+          setApiSecret(creds.mexc.apiSecret);
+          setHasStoredCreds(true);
+        }
+      } catch {
+        if (active) setError("Failed to load exchange credentials.");
+      } finally {
+        if (active) setLoadingCreds(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
   const exportAll = () => {
     const csv = tradesToCsv(trades);
     downloadCsv(`tradex-all-trades-${todayDisplay()}.csv`, csv);
+  };
+
+  const save = async () => {
+    if (!user) return;
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await saveMexcCredentials(user.uid, { apiKey, apiSecret });
+      setHasStoredCreds(true);
+      setMessage("MEXC credentials saved.");
+    } catch {
+      setError("Failed to save credentials.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const equity = await fetchMexcFuturesEquity(apiKey, apiSecret);
+      setMessage(`Connected. Futures equity: ${fmtUsd(equity)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Connection test failed.");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!user) return;
+    setRemoving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await clearMexcCredentials(user.uid);
+      setApiKey("");
+      setApiSecret("");
+      setHasStoredCreds(false);
+      setMessage("MEXC credentials removed.");
+    } catch {
+      setError("Failed to remove credentials.");
+    } finally {
+      setRemoving(false);
+    }
   };
 
   return (
@@ -57,6 +150,100 @@ export default function Settings() {
             <LogOut size={16} /> Sign out
           </button>
         </div>
+      </div>
+
+      <div className="card form-section">
+        <h3 style={{ fontSize: 15, marginBottom: 6 }}>Exchanges</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Connect MEXC to pull your futures account equity into the calculator.
+          Create an API key with <strong>View Account Details</strong> permission.
+          Credentials are stored in your private Firestore and only used to fetch
+          balance over HTTPS. Consider IP-whitelisting your deployment.
+        </p>
+
+        {loadingCreds ? (
+          <p className="muted" style={{ margin: 0 }}>
+            Loading credentials…
+          </p>
+        ) : (
+          <div className="form-grid">
+            <div>
+              <label htmlFor="mexc-api-key">MEXC Access Key</label>
+              <input
+                id="mexc-api-key"
+                type="text"
+                autoComplete="off"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Access key"
+              />
+            </div>
+            <div>
+              <label htmlFor="mexc-api-secret">MEXC Secret Key</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  id="mexc-api-secret"
+                  type={showSecret ? "text" : "password"}
+                  autoComplete="off"
+                  value={apiSecret}
+                  onChange={(e) => setApiSecret(e.target.value)}
+                  placeholder="Secret key"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setShowSecret((v) => !v)}
+                  aria-label={showSecret ? "Hide secret" : "Show secret"}
+                >
+                  {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {message && (
+          <p className="computed" style={{ color: "var(--green)", marginTop: 12 }}>
+            {message}
+          </p>
+        )}
+        {error && (
+          <p className="computed" style={{ color: "var(--red)", marginTop: 12 }}>
+            {error}
+          </p>
+        )}
+
+        {!loadingCreds && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={save}
+              disabled={saving || !apiKey.trim() || !apiSecret.trim()}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={testConnection}
+              disabled={testing || !apiKey.trim() || !apiSecret.trim()}
+            >
+              {testing ? "Testing…" : "Test connection"}
+            </button>
+            {hasStoredCreds && (
+              <button
+                type="button"
+                className="btn"
+                onClick={remove}
+                disabled={removing}
+              >
+                {removing ? "Removing…" : "Remove"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="card">
