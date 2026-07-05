@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { computeStats, expandTradesByMistake, maxDrawdown, sessionStats } from "./analytics";
+import {
+  computeStats,
+  excursionSplitStats,
+  excursionStats,
+  exitReasonStats,
+  expandTradesByMistake,
+  maxDrawdown,
+  sessionStats,
+} from "./analytics";
 import type { Trade } from "../types";
 
 function trade(id: string, date: string, realizedR: number): Trade {
@@ -117,5 +125,110 @@ describe("sessionStats", () => {
     expect(stats.find((s) => s.key === "London")?.count).toBe(1);
     expect(stats.find((s) => s.key === "No session")?.count).toBe(1);
     expect(stats.find((s) => s.key === "New York")?.count).toBe(0);
+  });
+});
+
+describe("excursionStats", () => {
+  it("computes capture ratio and left on table", () => {
+    const trades: Trade[] = [
+      {
+        ...trade("a", "2025-01-01", 1),
+        maxFavorableR: 2,
+        maxAdverseR: -0.5,
+      },
+      {
+        ...trade("b", "2025-01-02", -1),
+        maxFavorableR: 0.5,
+        maxAdverseR: -1,
+      },
+    ];
+    const stats = excursionStats(trades);
+    expect(stats.countWithMfe).toBe(2);
+    expect(stats.countWithMae).toBe(2);
+    expect(stats.avgMaxFavorableR).toBeCloseTo(1.25);
+    expect(stats.avgMaxAdverseR).toBeCloseTo(-0.75);
+    // capture: 1/2 = 0.5, -1/0.5 = -2 => avg -0.75
+    expect(stats.captureRatio).toBeCloseTo(-0.75);
+    expect(stats.avgLeftOnTable).toBeCloseTo(1); // win only: 2 - 1 = 1
+  });
+
+  it("returns null averages when no MFE/MAE data", () => {
+    const stats = excursionStats([trade("a", "2025-01-01", 2)]);
+    expect(stats.countWithMfe).toBe(0);
+    expect(stats.countWithMae).toBe(0);
+    expect(stats.avgMaxFavorableR).toBeNull();
+    expect(stats.avgMaxAdverseR).toBeNull();
+    expect(stats.captureRatio).toBeNull();
+    expect(stats.avgLeftOnTable).toBeNull();
+  });
+});
+
+describe("excursionSplitStats", () => {
+  it("splits wins, losses, and break evens", () => {
+    const trades: Trade[] = [
+      {
+        ...trade("a", "2025-01-01", 2),
+        maxFavorableR: 3,
+        maxAdverseR: -0.5,
+      },
+      {
+        ...trade("b", "2025-01-02", -1),
+        maxFavorableR: 0.5,
+        maxAdverseR: -1.5,
+      },
+      {
+        ...trade("c", "2025-01-03", 0),
+        maxFavorableR: 0.2,
+        maxAdverseR: -0.2,
+      },
+    ];
+    const splits = excursionSplitStats(trades);
+    expect(splits.map((s) => s.key)).toEqual(["Wins", "Losses", "Break Even"]);
+    expect(splits[0].count).toBe(1);
+    expect(splits[0].avgRealizedR).toBeCloseTo(2);
+    expect(splits[0].avgMaxFavorableR).toBeCloseTo(3);
+    expect(splits[1].count).toBe(1);
+    expect(splits[1].avgMaxAdverseR).toBeCloseTo(-1.5);
+    expect(splits[2].count).toBe(1);
+  });
+});
+
+describe("exitReasonStats", () => {
+  it("groups by exit reason with avg MFE/MAE", () => {
+    const trades: Trade[] = [
+      {
+        ...trade("a", "2025-01-01", 2),
+        exitReason: "TP",
+        maxFavorableR: 2.5,
+        maxAdverseR: -0.3,
+      },
+      {
+        ...trade("b", "2025-01-02", -1),
+        exitReason: "SL",
+        maxFavorableR: 0.8,
+        maxAdverseR: -1,
+      },
+      {
+        ...trade("c", "2025-01-03", 1),
+        exitReason: "TP",
+        maxFavorableR: 1.5,
+        maxAdverseR: -0.5,
+      },
+    ];
+    const stats = exitReasonStats(trades);
+    expect(stats).toHaveLength(2);
+    const tp = stats.find((s) => s.key === "TP");
+    expect(tp?.count).toBe(2);
+    expect(tp?.netR).toBeCloseTo(3);
+    expect(tp?.avgMaxFavorableR).toBeCloseTo(2);
+    const sl = stats.find((s) => s.key === "SL");
+    expect(sl?.count).toBe(1);
+    expect(sl?.avgMaxAdverseR).toBeCloseTo(-1);
+  });
+
+  it("excludes empty groups", () => {
+    const stats = exitReasonStats([trade("a", "2025-01-01", 2)]);
+    expect(stats).toHaveLength(1);
+    expect(stats[0].key).toBe("No exit reason");
   });
 });

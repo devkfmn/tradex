@@ -290,6 +290,133 @@ function round(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function avgField(
+  trades: Trade[],
+  pick: (t: Trade) => number | null | undefined
+): number | null {
+  const vals = trades
+    .map(pick)
+    .filter((v): v is number => v != null && Number.isFinite(v));
+  if (vals.length === 0) return null;
+  return sum(vals) / vals.length;
+}
+
+export interface ExcursionStats {
+  countWithMfe: number;
+  countWithMae: number;
+  avgMaxFavorableR: number | null;
+  avgMaxAdverseR: number | null;
+  captureRatio: number | null;
+  avgLeftOnTable: number | null;
+}
+
+export interface ExcursionSplit {
+  key: "Wins" | "Losses" | "Break Even";
+  count: number;
+  avgRealizedR: number | null;
+  avgMaxFavorableR: number | null;
+  avgMaxAdverseR: number | null;
+}
+
+export interface ExitReasonStat extends GroupStat {
+  avgMaxFavorableR: number | null;
+  avgMaxAdverseR: number | null;
+}
+
+/** Portfolio-level MFE/MAE and capture metrics. */
+export function excursionStats(trades: Trade[]): ExcursionStats {
+  const withMfe = trades.filter(
+    (t) => t.maxFavorableR != null && Number.isFinite(t.maxFavorableR)
+  );
+  const withMae = trades.filter(
+    (t) => t.maxAdverseR != null && Number.isFinite(t.maxAdverseR)
+  );
+
+  const captureTrades = trades.filter(
+    (t) =>
+      t.realizedR != null &&
+      Number.isFinite(t.realizedR) &&
+      t.maxFavorableR != null &&
+      Number.isFinite(t.maxFavorableR) &&
+      t.maxFavorableR > 0.1
+  );
+  const captureRatios = captureTrades.map(
+    (t) => (t.realizedR as number) / (t.maxFavorableR as number)
+  );
+
+  const leftOnTableTrades = trades.filter(
+    (t) =>
+      t.realizedR != null &&
+      t.realizedR > 0.1 &&
+      t.maxFavorableR != null &&
+      Number.isFinite(t.maxFavorableR)
+  );
+  const leftOnTable = leftOnTableTrades.map(
+    (t) => (t.maxFavorableR as number) - (t.realizedR as number)
+  );
+
+  return {
+    countWithMfe: withMfe.length,
+    countWithMae: withMae.length,
+    avgMaxFavorableR: avgField(trades, (t) => t.maxFavorableR),
+    avgMaxAdverseR: avgField(trades, (t) => t.maxAdverseR),
+    captureRatio:
+      captureRatios.length > 0 ? sum(captureRatios) / captureRatios.length : null,
+    avgLeftOnTable:
+      leftOnTable.length > 0 ? sum(leftOnTable) / leftOnTable.length : null,
+  };
+}
+
+/** MFE/MAE breakdown by win, loss, and break-even. */
+export function excursionSplitStats(trades: Trade[]): ExcursionSplit[] {
+  const wins = trades.filter((t) => t.realizedR != null && t.realizedR > 0.1);
+  const losses = trades.filter((t) => t.realizedR != null && t.realizedR < -0.1);
+  const breakEvens = trades.filter(
+    (t) =>
+      t.realizedR != null &&
+      Number.isFinite(t.realizedR) &&
+      t.realizedR >= -0.1 &&
+      t.realizedR <= 0.1
+  );
+
+  function split(key: ExcursionSplit["key"], arr: Trade[]): ExcursionSplit {
+    const withR = arr.filter((t) => t.realizedR != null && Number.isFinite(t.realizedR));
+    return {
+      key,
+      count: withR.length,
+      avgRealizedR: avgField(withR, (t) => t.realizedR),
+      avgMaxFavorableR: avgField(arr, (t) => t.maxFavorableR),
+      avgMaxAdverseR: avgField(arr, (t) => t.maxAdverseR),
+    };
+  }
+
+  return [split("Wins", wins), split("Losses", losses), split("Break Even", breakEvens)];
+}
+
+/** Exit reason performance with per-group MFE/MAE averages. */
+export function exitReasonStats(trades: Trade[]): ExitReasonStat[] {
+  const grouped = groupStats(trades, (t) => t.exitReason?.trim() || "No exit reason");
+  const buckets = new Map<string, Trade[]>();
+  for (const t of trades) {
+    const key = t.exitReason?.trim() || "No exit reason";
+    const arr = buckets.get(key) ?? [];
+    arr.push(t);
+    buckets.set(key, arr);
+  }
+
+  return grouped
+    .filter((g) => g.count > 0)
+    .map((g) => {
+      const arr = buckets.get(g.key) ?? [];
+      return {
+        ...g,
+        avgMaxFavorableR: avgField(arr, (t) => t.maxFavorableR),
+        avgMaxAdverseR: avgField(arr, (t) => t.maxAdverseR),
+      };
+    })
+    .sort((a, b) => b.netR - a.netR);
+}
+
 // ---------- formatting helpers (NaN/Infinity safe) ----------
 
 export function fmtR(n: number | null | undefined, digits = 2): string {

@@ -7,6 +7,9 @@ import DateRangeBar, {
 } from "../components/DateRangeBar";
 import {
   computeStats,
+  excursionSplitStats,
+  excursionStats,
+  exitReasonStats,
   expandTradesByMistake,
   fmtNum,
   fmtPct,
@@ -89,6 +92,14 @@ export default function Reports() {
     [filtered]
   );
   const weekdays = useMemo(() => weekdayStats(filtered), [filtered]);
+  const excursions = useMemo(() => excursionStats(filtered), [filtered]);
+  const excursionSplits = useMemo(() => excursionSplitStats(filtered), [filtered]);
+  const exitReasons = useMemo(
+    () => exitReasonStats(filtered),
+    [filtered]
+  );
+  const hasExcursionData = excursions.countWithMfe > 0 || excursions.countWithMae > 0;
+  const hasExitReasonData = filtered.some((t) => t.exitReason?.trim());
 
   return (
     <div className="page section-stack">
@@ -164,6 +175,115 @@ export default function Reports() {
               />
               <StatCard label="Short Win %" value={fmtPct(shortStats.winRate)} />
             </div>
+          </div>
+
+          <div className="report-block">
+            <h3>Trade excursions</h3>
+            {!hasExcursionData ? (
+              <div className="empty-state">
+                No excursion data yet — fill in Max favorable R and Max adverse R when logging
+                trades.
+              </div>
+            ) : (
+              <>
+                <div className="lvs-grid">
+                  <StatCard
+                    label="Avg Max Favorable R"
+                    value={fmtR(excursions.avgMaxFavorableR)}
+                    sub={`${excursions.countWithMfe} trades`}
+                  />
+                  <StatCard
+                    label="Avg Max Adverse R"
+                    value={fmtR(excursions.avgMaxAdverseR)}
+                    sub={`${excursions.countWithMae} trades`}
+                  />
+                  <StatCard
+                    label="Capture ratio"
+                    value={fmtPct(excursions.captureRatio)}
+                    sub="Realized R ÷ max favorable R"
+                  />
+                  <StatCard
+                    label="Left on table"
+                    value={fmtR(excursions.avgLeftOnTable)}
+                    sub="Avg on winning trades"
+                  />
+                </div>
+                <div className="table-wrap" style={{ marginTop: 16 }}>
+                  <table className="data">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>Trades</th>
+                        <th>Avg Realized R</th>
+                        <th>Avg Max Fav R</th>
+                        <th>Avg Max Adv R</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {excursionSplits.map((row) => (
+                        <tr key={row.key}>
+                          <td>{row.key}</td>
+                          <td className="mono">{row.count}</td>
+                          <td>
+                            <RCell value={row.avgRealizedR} />
+                          </td>
+                          <td>
+                            <RCell value={row.avgMaxFavorableR} />
+                          </td>
+                          <td>
+                            <RCell value={row.avgMaxAdverseR} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="report-block">
+            <h3>Exit reason performance</h3>
+            {!hasExitReasonData ? (
+              <div className="empty-state">No exit reasons tagged yet.</div>
+            ) : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>Exit reason</th>
+                      <th>Trades</th>
+                      <th>Win %</th>
+                      <th>Net R</th>
+                      <th>Avg R</th>
+                      <th>Avg Max Fav R</th>
+                      <th>Avg Max Adv R</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exitReasons.map((g) => (
+                      <tr key={g.key}>
+                        <td>{g.key}</td>
+                        <td className="mono">{g.count}</td>
+                        <td className="mono">{fmtPct(g.winRate)}</td>
+                        <td>
+                          <RCell value={g.netR} />
+                        </td>
+                        <td>
+                          <RCell value={g.expectancy} />
+                        </td>
+                        <td>
+                          <RCell value={g.avgMaxFavorableR} />
+                        </td>
+                        <td>
+                          <RCell value={g.avgMaxAdverseR} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="report-block">
