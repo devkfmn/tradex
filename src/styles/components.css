@@ -359,6 +359,39 @@
   font-weight: 700;
 }
 
+@media (max-width: 860px) {
+  .cal-grid {
+    gap: 4px;
+  }
+  .cal-dow {
+    font-size: 9px;
+  }
+  .cal-cell {
+    padding: 5px;
+    gap: 2px;
+    min-height: 72px;
+    line-height: 1.15;
+  }
+  .cal-date {
+    font-size: 10px;
+  }
+  .cal-usd {
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cal-r {
+    font-size: 9px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cal-count {
+    font-size: 9px;
+  }
+}
+
 /* ---------- misc ---------- */
 .section-stack > * + * {
   margin-top: var(--sp-5);
