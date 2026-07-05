@@ -7,12 +7,14 @@ export default function FilterBar({
   filters,
   onChange,
   showSearch = true,
+  showDateFields = true,
   mistakeOptions,
 }: {
   trades: Trade[];
   filters: TradeFilters;
   onChange: (f: TradeFilters) => void;
   showSearch?: boolean;
+  showDateFields?: boolean;
   mistakeOptions?: string[];
 }) {
   const coins = uniqueSorted(trades.map((t) => t.coin));
@@ -37,22 +39,26 @@ export default function FilterBar({
           />
         </div>
       )}
-      <div>
-        <label>From</label>
-        <input
-          type="date"
-          value={filters.from}
-          onChange={(e) => set({ from: e.target.value })}
-        />
-      </div>
-      <div>
-        <label>To</label>
-        <input
-          type="date"
-          value={filters.to}
-          onChange={(e) => set({ to: e.target.value })}
-        />
-      </div>
+      {showDateFields && (
+        <>
+          <div>
+            <label>From</label>
+            <input
+              type="date"
+              value={filters.from}
+              onChange={(e) => set({ from: e.target.value })}
+            />
+          </div>
+          <div>
+            <label>To</label>
+            <input
+              type="date"
+              value={filters.to}
+              onChange={(e) => set({ to: e.target.value })}
+            />
+          </div>
+        </>
+      )}
       <div>
         <label>Coin</label>
         <select value={filters.coin} onChange={(e) => set({ coin: e.target.value })}>

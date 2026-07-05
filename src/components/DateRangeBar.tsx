@@ -3,12 +3,20 @@ import {
   type DatePreset,
 } from "../lib/filters";
 
-const STORAGE_KEY = "tradex.dashboard.datePreset";
+const STORAGE_KEY = "tradex.datePreset";
+const LEGACY_STORAGE_KEY = "tradex.dashboard.datePreset";
 
 export function loadDatePreset(): DatePreset {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    if (v && v in DATE_PRESET_LABELS) return v as DatePreset;
+    const v =
+      localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (v && v in DATE_PRESET_LABELS) {
+      if (!localStorage.getItem(STORAGE_KEY) && v) {
+        localStorage.setItem(STORAGE_KEY, v);
+      }
+      return v as DatePreset;
+    }
   } catch {
     // ignore
   }

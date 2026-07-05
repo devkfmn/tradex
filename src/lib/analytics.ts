@@ -261,6 +261,29 @@ export function weekdayStats(trades: Trade[]): GroupStat[] {
   });
 }
 
+/** Session performance Asia → Other, plus unset trades (always returns 5 rows). */
+export function sessionStats(trades: Trade[]): GroupStat[] {
+  const bySession = new Map<string, Trade[]>();
+  for (const t of trades) {
+    const key = t.session?.trim() || "No session";
+    const arr = bySession.get(key) ?? [];
+    arr.push(t);
+    bySession.set(key, arr);
+  }
+  const order = ["Asia", "London", "New York", "Other", "No session"];
+  return order.map((key) => {
+    const arr = bySession.get(key) ?? [];
+    const stats = computeStats(arr);
+    const rs = tradesWithR(arr).map((x) => x.r);
+    return {
+      key,
+      ...stats,
+      bestTradeR: rs.length ? Math.max(...rs) : null,
+      worstTradeR: rs.length ? Math.min(...rs) : null,
+    };
+  });
+}
+
 function round(n: number): number {
   return Math.round(n * 100) / 100;
 }

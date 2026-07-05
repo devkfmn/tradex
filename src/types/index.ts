@@ -17,7 +17,6 @@ export type ExitReason =
   | "Invalidation"
   | "Partial"
   | "Other";
-export type RuleFollowed = "Yes" | "No" | "Mixed";
 
 export interface Trade {
   id: string;
@@ -83,20 +82,3 @@ export interface Mistake {
 }
 
 export type MistakeInput = Omit<Mistake, "id">;
-
-export interface Review {
-  id: string;
-  weekStartDate: string; // ISO date string of the Monday
-  totalR: number | null;
-  bestSetup: string;
-  worstSetup: string;
-  mainMistake: string;
-  bestTrade: string;
-  worstTrade: string;
-  ruleFollowed: RuleFollowed | "";
-  decisionNextWeek: string;
-  createdAt?: number | null;
-  updatedAt?: number | null;
-}
-
-export type ReviewInput = Omit<Review, "id">;

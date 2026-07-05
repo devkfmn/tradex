@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
+import DateRangeBar, {
+  loadDatePreset,
+  saveDatePreset,
+  type DatePreset,
+} from "../components/DateRangeBar";
 import {
   computeStats,
   expandTradesByMistake,
@@ -9,18 +14,57 @@ import {
   fmtUsd,
   groupStats,
   signClass,
+  sessionStats,
   weekdayStats,
   type GroupStat,
 } from "../lib/analytics";
-import { applyFilters, emptyFilters, type TradeFilters } from "../lib/filters";
+import {
+  applyFilters,
+  DATE_PRESET_LABELS,
+  emptyFilters,
+  filterTradesByDateRange,
+  presetToDateRange,
+  type TradeFilters,
+} from "../lib/filters";
 import FilterBar from "../components/FilterBar";
 import { StatCard, EmptyState, RCell } from "../components/ui";
 
 export default function Reports() {
   const { trades, mistakes, loading } = useData();
   const [filters, setFilters] = useState<TradeFilters>(emptyFilters);
+  const [preset, setPreset] = useState<DatePreset>(() => loadDatePreset());
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
-  const filtered = useMemo(() => applyFilters(trades, filters), [trades, filters]);
+  const { from, to } = useMemo(() => {
+    if (preset === "custom") return { from: customFrom, to: customTo };
+    return presetToDateRange(preset);
+  }, [preset, customFrom, customTo]);
+
+  const dateFiltered = useMemo(
+    () => filterTradesByDateRange(trades, from, to),
+    [trades, from, to]
+  );
+
+  const filtered = useMemo(
+    () => applyFilters(dateFiltered, filters),
+    [dateFiltered, filters]
+  );
+
+  const rangeLabel = useMemo(() => {
+    if (preset === "custom") {
+      if (customFrom && customTo) return `${customFrom} – ${customTo}`;
+      if (customFrom) return `From ${customFrom}`;
+      if (customTo) return `Until ${customTo}`;
+      return DATE_PRESET_LABELS.custom;
+    }
+    return DATE_PRESET_LABELS[preset];
+  }, [preset, customFrom, customTo]);
+
+  const handlePresetChange = (next: DatePreset) => {
+    setPreset(next);
+    saveDatePreset(next);
+  };
 
   const setupStats = useMemo(
     () =>
@@ -40,6 +84,7 @@ export default function Reports() {
     () => groupStats(filtered, (t) => t.coin).sort((a, b) => b.netR - a.netR),
     [filtered]
   );
+  const sessions = useMemo(() => sessionStats(filtered), [filtered]);
   const longStats = useMemo(
     () => computeStats(filtered.filter((t) => t.direction === "Long")),
     [filtered]
@@ -55,14 +100,26 @@ export default function Reports() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">{filtered.length} trades in view</p>
+          <p className="page-subtitle">
+            {rangeLabel} · {filtered.length} of {trades.length} trades
+          </p>
         </div>
       </div>
 
+      <DateRangeBar
+        preset={preset}
+        customFrom={customFrom}
+        customTo={customTo}
+        onPresetChange={handlePresetChange}
+        onCustomFromChange={setCustomFrom}
+        onCustomToChange={setCustomTo}
+      />
+
       <FilterBar
-        trades={trades}
+        trades={dateFiltered}
         filters={filters}
         onChange={setFilters}
+        showDateFields={false}
         mistakeOptions={mistakes.map((m) => m.name)}
       />
 
@@ -183,6 +240,52 @@ export default function Reports() {
                       </td>
                       <td>
                         <RCell value={g.expectancy} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="report-block">
+            <h3>Session performance</h3>
+            <div className="table-wrap">
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>Session</th>
+                    <th>Trades</th>
+                    <th>Win %</th>
+                    <th>Net $</th>
+                    <th>Net R</th>
+                    <th>Avg R</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((g) => (
+                    <tr key={g.key}>
+                      <td>{g.key}</td>
+                      <td className="mono">{g.count}</td>
+                      <td className="mono">
+                        {g.count ? fmtPct(g.winRate) : <span className="faint">—</span>}
+                      </td>
+                      <td className={`mono ${signClass(g.netPnl)}`}>
+                        {g.count && g.hasPnl ? (
+                          fmtUsd(g.netPnl)
+                        ) : (
+                          <span className="faint">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {g.count ? <RCell value={g.netR} /> : <span className="faint">—</span>}
+                      </td>
+                      <td>
+                        {g.count ? (
+                          <RCell value={g.expectancy} />
+                        ) : (
+                          <span className="faint">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

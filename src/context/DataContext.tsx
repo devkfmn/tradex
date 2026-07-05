@@ -7,23 +7,20 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
-import type { Review, Setup, Trade, Mistake } from "../types";
+import type { Setup, Trade, Mistake } from "../types";
 import { listTrades, migrateMistakesToArray, removeLegacyTradeFields } from "../services/trades";
 import { listSetups } from "../services/setups";
-import { listReviews } from "../services/reviews";
 import { listMistakes, seedDefaultMistakes, syncDefaultMistakes } from "../services/mistakes";
 
 interface DataContextValue {
   trades: Trade[];
   setups: Setup[];
   mistakes: Mistake[];
-  reviews: Review[];
   loading: boolean;
   error: string | null;
   reloadTrades: () => Promise<void>;
   reloadSetups: () => Promise<void>;
   reloadMistakes: () => Promise<void>;
-  reloadReviews: () => Promise<void>;
   reloadAll: () => Promise<void>;
 }
 
@@ -41,7 +38,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [setups, setSetups] = useState<Setup[]>([]);
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,11 +54,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reloadMistakes = useCallback(async () => {
     if (!uid) return;
     setMistakes(await listMistakes(uid));
-  }, [uid]);
-
-  const reloadReviews = useCallback(async () => {
-    if (!uid) return;
-    setReviews(await listReviews(uid));
   }, [uid]);
 
   const reloadAll = useCallback(async () => {
@@ -90,16 +81,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         await migrateMistakesToArray(uid);
         localStorage.setItem(mistakesArrayKey, "1");
       }
-      const [t, s, m, r] = await Promise.all([
+      const [t, s, m] = await Promise.all([
         listTrades(uid),
         listSetups(uid),
         listMistakes(uid),
-        listReviews(uid),
       ]);
       setTrades(t);
       setSetups(s);
       setMistakes(m);
-      setReviews(r);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Failed to load data from Firestore."
@@ -114,7 +103,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setTrades([]);
       setSetups([]);
       setMistakes([]);
-      setReviews([]);
       setLoading(false);
       return;
     }
@@ -127,13 +115,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         trades,
         setups,
         mistakes,
-        reviews,
         loading,
         error,
         reloadTrades,
         reloadSetups,
         reloadMistakes,
-        reloadReviews,
         reloadAll,
       }}
     >

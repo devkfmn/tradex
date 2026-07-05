@@ -8,7 +8,6 @@ import AddTrade from "./pages/AddTrade";
 import Reports from "./pages/Reports";
 import Playbook from "./pages/Playbook";
 import Calendar from "./pages/Calendar";
-import Review from "./pages/Review";
 import Calculator from "./pages/Calculator";
 import Settings from "./pages/Settings";
 
@@ -26,7 +25,6 @@ export default function App() {
           <Route path="/reports" element={<Reports />} />
           <Route path="/playbook" element={<Playbook />} />
           <Route path="/calendar" element={<Calendar />} />
-          <Route path="/review" element={<Review />} />
           <Route path="/calculator" element={<Calculator />} />
           <Route path="/settings" element={<Settings />} />
         </Route>

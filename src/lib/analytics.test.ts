@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeStats, expandTradesByMistake, maxDrawdown } from "./analytics";
+import { computeStats, expandTradesByMistake, maxDrawdown, sessionStats } from "./analytics";
 import type { Trade } from "../types";
 
 function trade(id: string, date: string, realizedR: number): Trade {
@@ -63,5 +63,28 @@ describe("expandTradesByMistake", () => {
 
   it("skips trades with no mistakes", () => {
     expect(expandTradesByMistake([trade("a", "2025-01-01", -1)])).toEqual([]);
+  });
+});
+
+describe("sessionStats", () => {
+  it("groups trades by session and always returns 5 rows", () => {
+    const trades: Trade[] = [
+      { ...trade("a", "2025-01-01", 2), session: "Asia" },
+      { ...trade("b", "2025-01-02", -1), session: "London" },
+      trade("c", "2025-01-03", -0.5),
+    ];
+    const stats = sessionStats(trades);
+    expect(stats).toHaveLength(5);
+    expect(stats.map((s) => s.key)).toEqual([
+      "Asia",
+      "London",
+      "New York",
+      "Other",
+      "No session",
+    ]);
+    expect(stats.find((s) => s.key === "Asia")?.count).toBe(1);
+    expect(stats.find((s) => s.key === "London")?.count).toBe(1);
+    expect(stats.find((s) => s.key === "No session")?.count).toBe(1);
+    expect(stats.find((s) => s.key === "New York")?.count).toBe(0);
   });
 });
