@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
@@ -23,7 +24,10 @@ const blankMistake: MistakeInput = {
 };
 
 export default function Playbook() {
-  const [tab, setTab] = useState<Tab>("setups");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() =>
+    searchParams.get("tab") === "mistakes" ? "mistakes" : "setups"
+  );
 
   return (
     <div className="page">

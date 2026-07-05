@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -132,7 +132,6 @@ export default function AddTrade() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [customMistake, setCustomMistake] = useState("");
 
   useEffect(() => {
     if (!isEdit || !user || !id) return;
@@ -174,16 +173,6 @@ export default function AddTrade() {
           : [...f.mistakes, name],
       };
     });
-  };
-
-  const addCustomMistake = () => {
-    const name = canonicalNames([customMistake], mistakes)[0];
-    if (!name) return;
-    setForm((f) => {
-      if (f.mistakes.some((m) => m.toLowerCase() === name.toLowerCase())) return f;
-      return { ...f, mistakes: [...f.mistakes, name] };
-    });
-    setCustomMistake("");
   };
 
   // derived values
@@ -524,67 +513,61 @@ export default function AddTrade() {
             </div>
             <div className="field-full">
               <label>Mistake tags</label>
-              <div className="tag-chip-row">
-                {mistakes.map((m) => {
-                  const selected = form.mistakes.some(
-                    (tag) => tag.toLowerCase() === m.name.toLowerCase()
-                  );
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className={`tag-chip${selected ? " selected" : ""}`}
-                      onClick={() => toggleMistake(m.name)}
-                    >
-                      {m.name}
-                    </button>
-                  );
-                })}
-                {form.mistakes
-                  .filter(
-                    (tag) =>
-                      !mistakes.some(
-                        (m) => m.name.toLowerCase() === tag.toLowerCase()
-                      )
+              <p className="field-hint">
+                Select from your mistake library.{" "}
+                <Link className="inline-link" to="/playbook?tab=mistakes">
+                  Manage mistakes in Playbook
+                </Link>
+              </p>
+              {mistakes.length === 0 &&
+              !form.mistakes.some(
+                (tag) =>
+                  !mistakes.some(
+                    (m) => m.name.toLowerCase() === tag.toLowerCase()
                   )
-                  .map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      className="tag-chip selected"
-                      onClick={() => toggleMistake(tag)}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-              </div>
-              <div className="tag-chip-add">
-                <input
-                  list="mistake-options"
-                  placeholder="Add custom tag"
-                  value={customMistake}
-                  onChange={(e) => setCustomMistake(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addCustomMistake();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={addCustomMistake}
-                  disabled={!customMistake.trim()}
-                >
-                  Add
-                </button>
-              </div>
-              <datalist id="mistake-options">
-                {mistakes.map((m) => (
-                  <option key={m.id} value={m.name} />
-                ))}
-              </datalist>
+              ) ? (
+                <p className="field-hint">
+                  No mistake tags yet.{" "}
+                  <Link className="inline-link" to="/playbook?tab=mistakes">
+                    Add them in Playbook
+                  </Link>
+                </p>
+              ) : (
+                <div className="tag-chip-row">
+                  {mistakes.map((m) => {
+                    const selected = form.mistakes.some(
+                      (tag) => tag.toLowerCase() === m.name.toLowerCase()
+                    );
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`tag-chip${selected ? " selected" : ""}`}
+                        onClick={() => toggleMistake(m.name)}
+                      >
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                  {form.mistakes
+                    .filter(
+                      (tag) =>
+                        !mistakes.some(
+                          (m) => m.name.toLowerCase() === tag.toLowerCase()
+                        )
+                    )
+                    .map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="tag-chip selected"
+                        onClick={() => toggleMistake(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                </div>
+              )}
             </div>
             <div>
               <label>Exit reason</label>
