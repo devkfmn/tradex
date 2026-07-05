@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import type { Connect } from "vite";
-import { handleFuturesEquityHttpRequest } from "./src/server/mexc/equityHandler";
+import { handleFuturesEquityHttpRequest } from "./api/_lib/mexc/equityHandler";
 
 function mexcApiDevMiddleware(): Connect.NextHandleFunction {
   return (req, res, next) => {
