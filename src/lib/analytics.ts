@@ -119,12 +119,14 @@ export function computeStats(trades: Trade[]): Stats {
     .sort((a, b) => a.trade.date.localeCompare(b.trade.date))
     .map((x) => x.r);
 
+  const decisive = winRs.length + lossRs.length;
+
   return {
     count,
     netR,
     netPnl,
     hasPnl,
-    winRate: count > 0 ? winRs.length / count : null,
+    winRate: decisive > 0 ? winRs.length / decisive : null,
     avgWinR: winRs.length > 0 ? grossWin / winRs.length : null,
     avgLossR: lossRs.length > 0 ? grossLoss / lossRs.length : null,
     expectancy: count > 0 ? netR / count : null,

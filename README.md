@@ -131,7 +131,7 @@ routing (React Router) works on refresh and deep links.
 
 - **Result** — `Win` if realized R > 0.1, `Loss` if < -0.1, otherwise `Break Even`
 - **Net R** — sum of realized R
-- **Win rate** — wins / trades with a result
+- **Win rate** — wins / (wins + losses); break-even trades are excluded
 - **Expectancy** — average realized R per trade
 - **Profit factor** — gross win R / absolute gross loss R (shown as `—` when no losses)
 - **Max drawdown** — largest peak-to-trough drop on the cumulative R curve

@@ -47,6 +47,37 @@ describe("computeStats", () => {
     // Chronological: -2, +3, -2 => peak 1, trough -1 => max dd 2
     expect(stats.maxDrawdown).toBe(2);
   });
+
+  it("excludes break-even trades from win rate", () => {
+    const trades = [
+      trade("a", "2025-01-01", 2),
+      trade("b", "2025-01-02", 1),
+      trade("c", "2025-01-03", -1),
+      trade("d", "2025-01-04", 0.05),
+    ];
+    const stats = computeStats(trades);
+    expect(stats.wins).toBe(2);
+    expect(stats.losses).toBe(1);
+    expect(stats.breakEvens).toBe(1);
+    expect(stats.winRate).toBeCloseTo(2 / 3);
+  });
+
+  it("returns null win rate when all trades are break-even", () => {
+    const trades = [trade("a", "2025-01-01", 0), trade("b", "2025-01-02", 0.05)];
+    const stats = computeStats(trades);
+    expect(stats.breakEvens).toBe(2);
+    expect(stats.winRate).toBeNull();
+  });
+
+  it("returns 100% win rate when there are only wins", () => {
+    const stats = computeStats([trade("a", "2025-01-01", 2)]);
+    expect(stats.winRate).toBe(1);
+  });
+
+  it("returns 0% win rate when there are only losses", () => {
+    const stats = computeStats([trade("a", "2025-01-01", -1)]);
+    expect(stats.winRate).toBe(0);
+  });
 });
 
 describe("expandTradesByMistake", () => {
