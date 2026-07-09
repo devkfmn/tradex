@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, canonicalNames, compareTradesByRecency } from "./filters";
+import { applyFilters, canonicalNames, compareTradesByRecency, completeTrades, isCompleteTrade } from "./filters";
 import { normalizeMistakes } from "../services/trades";
 import type { Trade } from "../types";
 
@@ -91,5 +91,20 @@ describe("canonicalNames", () => {
     expect(
       canonicalNames(["fomo", "FOMO", "Chased"], [{ name: "FOMO" }])
     ).toEqual(["FOMO", "Chased"]);
+  });
+});
+
+describe("isCompleteTrade", () => {
+  it("treats missing status as done", () => {
+    expect(isCompleteTrade(trade([]))).toBe(true);
+  });
+
+  it("excludes review trades from complete set", () => {
+    const trades = [
+      trade([], { status: "done" }),
+      trade([], { status: "review" }),
+      trade([]),
+    ];
+    expect(completeTrades(trades)).toHaveLength(2);
   });
 });

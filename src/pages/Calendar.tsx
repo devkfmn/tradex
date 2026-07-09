@@ -15,6 +15,7 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { fmtUsd, resultFromR, signClass } from "../lib/analytics";
+import { completeTrades } from "../lib/filters";
 import { ResultBadge, RCell } from "../components/ui";
 import type { Trade } from "../types";
 
@@ -33,7 +34,7 @@ export default function Calendar() {
 
   const byDate = useMemo(() => {
     const map = new Map<string, DayAgg>();
-    for (const t of trades) {
+    for (const t of completeTrades(trades)) {
       const key = t.date;
       const agg =
         map.get(key) ??

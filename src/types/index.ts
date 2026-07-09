@@ -18,6 +18,9 @@ export type ExitReason =
   | "Partial"
   | "Other";
 
+export type TradeStatus = "review" | "done";
+export type TradeSource = "manual" | "mexc";
+
 export interface Trade {
   id: string;
   date: string; // ISO storage format (yyyy-MM-dd); display via fmtDate()
@@ -45,6 +48,10 @@ export interface Trade {
   maxFavorableR?: number | null;
   maxAdverseR?: number | null;
   thesis?: string;
+
+  status?: TradeStatus;
+  source?: TradeSource;
+  mexcPositionId?: string | null;
 
   createdAt?: number | null;
   updatedAt?: number | null;
@@ -92,4 +99,19 @@ export interface MexcCredentials {
 
 export interface ExchangeCredentials {
   mexc?: MexcCredentials & { updatedAt?: number | null };
+}
+
+/** Normalized closed position from MEXC futures API. */
+export interface MexcClosedPositionDto {
+  mexcPositionId: string;
+  coin: string;
+  direction: Direction;
+  entry: number | null;
+  closePrice: number | null;
+  pnl: number | null;
+  date: string;
+  leverage: number | null;
+  fee: number | null;
+  holdFee: number | null;
+  postNotes: string;
 }

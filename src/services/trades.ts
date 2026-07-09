@@ -72,6 +72,9 @@ function fromDoc(id: string, data: Record<string, unknown>): Trade {
     maxFavorableR: (data.maxFavorableR as number) ?? null,
     maxAdverseR: (data.maxAdverseR as number) ?? null,
     thesis: (data.thesis as string) ?? "",
+    status: (data.status as Trade["status"]) ?? "done",
+    source: (data.source as Trade["source"]) ?? "manual",
+    mexcPositionId: (data.mexcPositionId as string) ?? null,
     createdAt: tsToMillis(data.createdAt),
     updatedAt: tsToMillis(data.updatedAt),
   };

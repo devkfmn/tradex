@@ -1,7 +1,8 @@
-import { createHmac } from "node:crypto";
+import { signMexcFuturesRequest } from "./signing.js";
+
+export { signMexcFuturesRequest } from "./signing.js";
 
 const MEXC_FUTURES_BASE = "https://contract.mexc.com";
-
 export class MexcApiError extends Error {
   constructor(
     message: string,
@@ -22,17 +23,6 @@ export interface MexcAssetsResponse {
   code?: number;
   data?: MexcAsset[];
   message?: string;
-}
-
-export function signMexcFuturesRequest(
-  accessKey: string,
-  secretKey: string,
-  requestParam = ""
-): { timestamp: string; signature: string } {
-  const timestamp = String(Date.now());
-  const target = `${accessKey}${timestamp}${requestParam}`;
-  const signature = createHmac("sha256", secretKey).update(target).digest("hex");
-  return { timestamp, signature };
 }
 
 export function parseUsdtEquity(response: MexcAssetsResponse): number {

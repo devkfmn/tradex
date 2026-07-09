@@ -30,6 +30,10 @@ export function ResultBadge({ result }: { result: Result | null }) {
   return <span className={`badge ${cls}`}>{result}</span>;
 }
 
+export function ReviewBadge() {
+  return <span className="badge badge-review">Review</span>;
+}
+
 export function RCell({ value, digits = 2 }: { value: number | null; digits?: number }) {
   if (value == null || !Number.isFinite(value))
     return <span className="muted mono">—</span>;

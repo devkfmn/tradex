@@ -24,6 +24,7 @@ import {
 import { formatDateRangeLabel } from "../lib/dates";
 import {
   applyFilters,
+  completeTrades,
   emptyFilters,
   filterTradesByDateRange,
   presetToDateRange,
@@ -45,7 +46,7 @@ export default function Reports() {
   }, [preset, customFrom, customTo]);
 
   const dateFiltered = useMemo(
-    () => filterTradesByDateRange(trades, from, to),
+    () => completeTrades(filterTradesByDateRange(trades, from, to)),
     [trades, from, to]
   );
 

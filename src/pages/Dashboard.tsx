@@ -29,7 +29,7 @@ import {
   signClass,
 } from "../lib/analytics";
 import { fmtDate, formatDateRangeLabel } from "../lib/dates";
-import { filterTradesByDateRange, presetToDateRange } from "../lib/filters";
+import { filterTradesByDateRange, completeTrades, isReviewTrade, presetToDateRange } from "../lib/filters";
 import { StatCard, EmptyState } from "../components/ui";
 
 function fmtUsdCompact(n: number): string {
@@ -53,8 +53,13 @@ export default function Dashboard() {
   }, [preset, customFrom, customTo]);
 
   const filteredTrades = useMemo(
-    () => filterTradesByDateRange(trades, from, to),
+    () => completeTrades(filterTradesByDateRange(trades, from, to)),
     [trades, from, to]
+  );
+
+  const reviewCount = useMemo(
+    () => trades.filter(isReviewTrade).length,
+    [trades]
   );
 
   const rangeLabel = useMemo(
@@ -149,6 +154,17 @@ export default function Dashboard() {
         onCustomFromChange={setCustomFrom}
         onCustomToChange={setCustomTo}
       />
+
+      {reviewCount > 0 && (
+        <div className="banner-warn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span>
+            {reviewCount} imported trade{reviewCount === 1 ? "" : "s"} need review
+          </span>
+          <Link to="/trades?status=review" className="btn btn-sm">
+            Review now
+          </Link>
+        </div>
+      )}
 
       {filteredTrades.length === 0 ? (
         <EmptyState

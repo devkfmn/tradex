@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fmtDate, formatDateRangeLabel, todayDisplay } from "../lib/dates";
 import {
   Download,
@@ -23,23 +23,30 @@ import {
   compareTradesByRecency,
   emptyFilters,
   filterTradesByDateRange,
+  isReviewTrade,
   presetToDateRange,
   type TradeFilters,
 } from "../lib/filters";
 import { downloadCsv, tradesToCsv } from "../lib/csv";
 import FilterBar from "../components/FilterBar";
-import { ConfirmDialog, EmptyState, ResultBadge, RCell } from "../components/ui";
+import { ConfirmDialog, EmptyState, ResultBadge, ReviewBadge, RCell } from "../components/ui";
 import type { Trade } from "../types";
 
 type SortKey = "date" | "coin" | "realizedR" | "pnl";
 type SortDir = "asc" | "desc";
+type StatusFilter = "all" | "review" | "done";
 
 export default function Trades() {
   const { user } = useAuth();
   const { trades, mistakes, loading, reloadTrades } = useData();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [filters, setFilters] = useState<TradeFilters>(emptyFilters);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const s = searchParams.get("status");
+    return s === "review" || s === "done" ? s : "all";
+  });
   const [preset, setPreset] = useState<DatePreset>(() => loadDatePreset());
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -47,6 +54,16 @@ export default function Trades() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [toDelete, setToDelete] = useState<Trade | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const s = searchParams.get("status");
+    if (s === "review" || s === "done") setStatusFilter(s);
+  }, [searchParams]);
+
+  const reviewCount = useMemo(
+    () => trades.filter(isReviewTrade).length,
+    [trades]
+  );
 
   const { from, to } = useMemo(() => {
     if (preset === "custom") return { from: customFrom, to: customTo };
@@ -59,7 +76,12 @@ export default function Trades() {
   );
 
   const filtered = useMemo(() => {
-    const rows = applyFilters(dateFiltered, filters);
+    let rows = applyFilters(dateFiltered, filters);
+    if (statusFilter === "review") {
+      rows = rows.filter(isReviewTrade);
+    } else if (statusFilter === "done") {
+      rows = rows.filter((t) => !isReviewTrade(t));
+    }
     const sorted = [...rows].sort((a, b) => {
       if (sortKey === "date") {
         const cmp = compareTradesByRecency(a, b);
@@ -73,7 +95,17 @@ export default function Trades() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [dateFiltered, filters, sortKey, sortDir]);
+  }, [dateFiltered, filters, sortKey, sortDir, statusFilter]);
+
+  const handleStatusFilterChange = (next: StatusFilter) => {
+    setStatusFilter(next);
+    if (next === "all") {
+      searchParams.delete("status");
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      setSearchParams({ status: next }, { replace: true });
+    }
+  };
 
   const rangeLabel = useMemo(
     () => formatDateRangeLabel(preset, customFrom, customTo),
@@ -132,6 +164,23 @@ export default function Trades() {
         </div>
       </div>
 
+      {reviewCount > 0 && (
+        <div className="banner-warn" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span>
+            {reviewCount} imported trade{reviewCount === 1 ? "" : "s"} need review
+          </span>
+          {statusFilter !== "review" && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => handleStatusFilterChange("review")}
+            >
+              Show review queue
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="filters-section">
         <DateRangeBar
           preset={preset}
@@ -149,6 +198,19 @@ export default function Trades() {
           showDateFields={false}
           mistakeOptions={mistakes.map((m) => m.name)}
         />
+
+        <div className="toolbar" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {(["all", "review", "done"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`btn btn-sm ${statusFilter === s ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => handleStatusFilterChange(s)}
+            >
+              {s === "all" ? "All" : s === "review" ? "Review" : "Done"}
+            </button>
+          ))}
+        </div>
 
         <div className="toolbar">
           <button
@@ -186,6 +248,7 @@ export default function Trades() {
                   Coin{sortIndicator("coin")}
                 </th>
                 <th>Dir</th>
+                <th>Status</th>
                 <th>Result</th>
                 <th>Setup</th>
                 <th>Risk %</th>
@@ -220,6 +283,13 @@ export default function Trades() {
                     >
                       {t.direction}
                     </span>
+                  </td>
+                  <td>
+                    {isReviewTrade(t) ? (
+                      <ReviewBadge />
+                    ) : (
+                      <span className="faint">Done</span>
+                    )}
                   </td>
                   <td>
                     <ResultBadge result={resultFromR(t.realizedR)} />

@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Download, Eye, EyeOff, LogOut } from "lucide-react";
+import { format, subDays } from "date-fns";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
 import { todayDisplay } from "../lib/dates";
 import { firebaseConfigStatus } from "../lib/firebase";
 import { downloadCsv, tradesToCsv } from "../lib/csv";
 import { fmtUsd } from "../lib/analytics";
-import { fetchMexcFuturesEquity } from "../lib/mexcClient";
+import { fetchMexcClosedPositions, fetchMexcFuturesEquity } from "../lib/mexcClient";
 import {
   clearMexcCredentials,
   getExchangeCredentials,
   saveMexcCredentials,
 } from "../services/exchangeCredentials";
+import { importMexcClosedPositions } from "../services/mexcImport";
 
 export default function Settings() {
   const { user, logout } = useAuth();
-  const { trades } = useData();
+  const { trades, reloadTrades } = useData();
   const config = firebaseConfigStatus();
 
   const [apiKey, setApiKey] = useState("");
@@ -25,9 +28,16 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFromDate, setImportFromDate] = useState(() =>
+    format(subDays(new Date(), 30), "yyyy-MM-dd")
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasStoredCreds, setHasStoredCreds] = useState(false);
+  const [importSuccessCount, setImportSuccessCount] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     if (!user) {
@@ -95,6 +105,7 @@ export default function Settings() {
     setRemoving(true);
     setError(null);
     setMessage(null);
+    setImportSuccessCount(null);
     try {
       await clearMexcCredentials(user.uid);
       setApiKey("");
@@ -105,6 +116,35 @@ export default function Settings() {
       setError("Failed to remove credentials.");
     } finally {
       setRemoving(false);
+    }
+  };
+
+  const runImport = async () => {
+    if (!user) return;
+    setImporting(true);
+    setError(null);
+    setMessage(null);
+    setImportSuccessCount(null);
+    try {
+      const positions = await fetchMexcClosedPositions(
+        apiKey,
+        apiSecret,
+        importFromDate
+      );
+      if (!positions.length) {
+        setMessage("No closed futures positions found for that date range.");
+        return;
+      }
+      await importMexcClosedPositions(user.uid, positions);
+      await reloadTrades();
+      setImportSuccessCount(positions.length);
+      setMessage(
+        `Imported ${positions.length} closed position${positions.length === 1 ? "" : "s"} into review.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed.");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -155,10 +195,12 @@ export default function Settings() {
       <div className="card form-section">
         <h3 style={{ fontSize: 15, marginBottom: 6 }}>Exchanges</h3>
         <p className="muted" style={{ marginTop: 0 }}>
-          Connect MEXC to pull your futures account equity into the calculator.
-          Create an API key with <strong>View Account Details</strong> permission.
-          Credentials are stored in your private Firestore and only used to fetch
-          balance over HTTPS. Consider IP-whitelisting your deployment.
+          Connect MEXC to pull futures equity into the calculator and import
+          closed futures positions into your journal. Create an API key with{" "}
+          <strong>View Account Details</strong> (balance) and{" "}
+          <strong>View Order Details</strong> (import). Credentials are stored in
+          your private Firestore and only used over HTTPS. Consider
+          IP-whitelisting your deployment.
         </p>
 
         {loadingCreds ? (
@@ -243,6 +285,52 @@ export default function Settings() {
               </button>
             )}
           </div>
+        )}
+      </div>
+
+      <div className="card form-section">
+        <h3 style={{ fontSize: 15, marginBottom: 6 }}>Import closed positions</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Import closed MEXC futures positions from a start date. Trades are
+          created in <strong>review</strong> status so you can add setup, risk,
+          and journal notes before finalizing.
+        </p>
+
+        {!loadingCreds && (
+          <>
+            <div className="form-grid" style={{ maxWidth: 320 }}>
+              <div>
+                <label htmlFor="mexc-import-from">Import from date</label>
+                <input
+                  id="mexc-import-from"
+                  type="date"
+                  value={importFromDate}
+                  onChange={(e) => setImportFromDate(e.target.value)}
+                  disabled={!apiKey.trim() || !apiSecret.trim()}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={runImport}
+                disabled={
+                  importing ||
+                  !apiKey.trim() ||
+                  !apiSecret.trim() ||
+                  !importFromDate
+                }
+              >
+                {importing ? "Importing…" : "Import from MEXC"}
+              </button>
+              {importSuccessCount != null && importSuccessCount > 0 && (
+                <Link to="/trades?status=review" className="btn">
+                  Review imported trades
+                </Link>
+              )}
+            </div>
+          </>
         )}
       </div>
 

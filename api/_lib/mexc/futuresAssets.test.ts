@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { MexcApiError, parseUsdtEquity, signMexcFuturesRequest } from "./futuresAssets";
+import { MexcApiError, parseUsdtEquity } from "./futuresAssets";
+import { signMexcFuturesRequest } from "./signing";
 
 describe("signMexcFuturesRequest", () => {
   it("produces a hex signature", () => {

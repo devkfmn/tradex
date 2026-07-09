@@ -132,6 +132,8 @@ export default function AddTrade() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tradeStatus, setTradeStatus] = useState<Trade["status"]>("done");
+  const [mexcPositionId, setMexcPositionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isEdit || !user || !id) return;
@@ -144,6 +146,8 @@ export default function AddTrade() {
           setError("Trade not found.");
         } else {
           setForm(fromTrade(t));
+          setTradeStatus(t.status ?? "done");
+          setMexcPositionId(t.mexcPositionId ?? null);
           const urls = t.screenshotUrls ?? [];
           setExistingUrls(urls);
           setOriginalUrls(urls);
@@ -263,6 +267,9 @@ export default function AddTrade() {
       maxFavorableR: num(form.maxFavorableR),
       maxAdverseR: num(form.maxAdverseR),
       thesis: form.thesis.trim(),
+      status: !isEdit || tradeStatus === "review" ? "done" : tradeStatus ?? "done",
+      source: isEdit ? undefined : "manual",
+      mexcPositionId: isEdit ? mexcPositionId : null,
     };
 
     try {
@@ -270,9 +277,13 @@ export default function AddTrade() {
       let finalUrls = existingUrls;
 
       if (isEdit && id) {
-        await updateTrade(user.uid, id, input);
+        const { source: _source, ...updatePayload } = input;
+        await updateTrade(user.uid, id, updatePayload);
       } else {
-        tradeId = await addTrade(user.uid, input);
+        tradeId = await addTrade(user.uid, {
+          ...input,
+          source: "manual",
+        });
       }
 
       if (pendingFiles.length && tradeId) {
@@ -315,6 +326,18 @@ export default function AddTrade() {
       </div>
 
       {error && <div className="banner-error" style={{ marginBottom: 16 }}>{error}</div>}
+
+      {tradeStatus === "review" && (
+        <div className="banner-warn" style={{ marginBottom: 16 }}>
+          Imported from MEXC — complete your journal entry (setup, risk, grade,
+          notes), then save to finalize.
+          {mexcPositionId && (
+            <span className="faint" style={{ display: "block", marginTop: 6 }}>
+              MEXC position ID: {mexcPositionId}
+            </span>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         {/* SECTION 1: PLAN */}

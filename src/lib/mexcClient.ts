@@ -1,3 +1,5 @@
+import type { MexcClosedPositionDto } from "../types";
+
 export class MexcClientError extends Error {
   constructor(message: string) {
     super(message);
@@ -31,4 +33,37 @@ export async function fetchMexcFuturesEquity(
   }
 
   return body.equity;
+}
+
+export async function fetchMexcClosedPositions(
+  apiKey: string,
+  apiSecret: string,
+  startDate: string
+): Promise<MexcClosedPositionDto[]> {
+  const res = await fetch("/api/mexc/futures-closed-positions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey, apiSecret, startDate }),
+  });
+
+  let body: {
+    positions?: MexcClosedPositionDto[];
+    importedCount?: number;
+    error?: string;
+  };
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    throw new MexcClientError(`Request failed (${res.status})`);
+  }
+
+  if (!res.ok || body.error) {
+    throw new MexcClientError(body.error ?? `Request failed (${res.status})`);
+  }
+
+  if (!Array.isArray(body.positions)) {
+    throw new MexcClientError("Invalid positions in response");
+  }
+
+  return body.positions;
 }

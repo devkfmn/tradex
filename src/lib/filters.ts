@@ -48,6 +48,18 @@ export function presetToDateRange(preset: DatePreset): { from: string; to: strin
 }
 
 /** Newest trade date first; same-day ties broken by createdAt (newest logged first). */
+export function isCompleteTrade(t: Trade): boolean {
+  return (t.status ?? "done") === "done";
+}
+
+export function completeTrades(trades: Trade[]): Trade[] {
+  return trades.filter(isCompleteTrade);
+}
+
+export function isReviewTrade(t: Trade): boolean {
+  return (t.status ?? "done") === "review";
+}
+
 export function compareTradesByRecency(a: Trade, b: Trade): number {
   const byDate = b.date.localeCompare(a.date);
   if (byDate !== 0) return byDate;
