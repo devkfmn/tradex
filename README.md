@@ -15,6 +15,7 @@ Firestore, Storage). No custom backend. Deploys cleanly to **Vercel**.
 - Fast Add/Edit trade form with auto-calculated planned R, realized R, and result
 - Multiple screenshot uploads per trade (Firebase Storage)
 - Reports: setup, mistake, coin, weekday, and long-vs-short performance
+- Reports AI summary: human-readable insight for the selected date range and filters
 - Playbook: setup library with auto-generated stats from linked trades
 - Calendar: monthly Net R heat grid with per-day trade drill-down
 - Weekly review form with auto week stats and history
@@ -95,6 +96,19 @@ users/{uid}/trades/{tradeId}
 users/{uid}/setups/{setupId}
 users/{uid}/reviews/{reviewId}
 ```
+
+### Enable AI report summaries (optional)
+
+The Reports page can generate a short AI narrative for the selected date range
+using Firebase AI Logic (Gemini via **Vertex AI**). One-time setup:
+
+1. Enable AI Logic in the [Firebase console](https://console.firebase.google.com/project/tradex-bd79e/ailogic/) → **Get started** → choose **Vertex AI Gemini API** (requires Blaze billing on the project).
+2. Or run: `npx firebase-tools init ailogic`
+
+Summaries bill through your **Firebase/GCP Blaze account**, not AI Studio prepay
+credits. They run client-side from aggregated stats only — no individual trade
+notes are sent to the model. For production, consider enabling [Firebase App
+Check](https://firebase.google.com/docs/app-check) to protect API quota.
 
 ### Create Storage
 

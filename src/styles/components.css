@@ -62,6 +62,96 @@
   color: var(--text-faint);
 }
 
+/* ---------- report summary ---------- */
+.report-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.report-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.report-summary-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.report-summary-refresh {
+  padding: 6px 8px;
+  min-width: 0;
+}
+.report-summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.report-summary-section h4 {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.report-summary-section p {
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+  color: var(--text);
+}
+.report-summary-section ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.report-summary-section li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.report-summary-skeleton {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--border) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.report-summary-skeleton.short {
+  width: 72%;
+}
+.report-summary-loading {
+  margin: 0;
+  font-size: 13px;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ---------- chart ---------- */
 .chart-card {
   background: var(--surface);

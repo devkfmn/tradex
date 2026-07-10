@@ -30,7 +30,9 @@ import {
   type TradeFilters,
 } from "../lib/filters";
 import FilterBar from "../components/FilterBar";
+import ReportSummaryCard from "../components/ReportSummaryCard";
 import { StatCard, EmptyState, RCell } from "../components/ui";
+import { buildReportSnapshot } from "../lib/reportSnapshot";
 
 export default function Reports() {
   const { trades, mistakes, loading } = useData();
@@ -98,6 +100,47 @@ export default function Reports() {
     () => exitReasonStats(filtered),
     [filtered]
   );
+  const overallStats = useMemo(() => computeStats(filtered), [filtered]);
+  const reportSnapshot = useMemo(
+    () =>
+      buildReportSnapshot({
+        rangeLabel,
+        from,
+        to,
+        tradeCount: filtered.length,
+        filters,
+        trades: filtered,
+        overall: overallStats,
+        longStats,
+        shortStats,
+        setupStats,
+        mistakeStats,
+        coinStats,
+        sessions,
+        weekdays,
+        excursions,
+        excursionSplits,
+        exitReasons,
+      }),
+    [
+      rangeLabel,
+      from,
+      to,
+      filtered.length,
+      filters,
+      overallStats,
+      longStats,
+      shortStats,
+      setupStats,
+      mistakeStats,
+      coinStats,
+      sessions,
+      weekdays,
+      excursions,
+      excursionSplits,
+      exitReasons,
+    ]
+  );
   const hasExcursionData = excursions.countWithMfe > 0 || excursions.countWithMae > 0;
   const hasExitReasonData = filtered.some((t) => t.exitReason?.trim());
 
@@ -137,6 +180,8 @@ export default function Reports() {
         <EmptyState title="No trades match your filters" />
       ) : (
         <>
+          <ReportSummaryCard snapshot={reportSnapshot} />
+
           <div className="report-block">
             <h3>Long vs Short</h3>
             <div className="lvs-grid">
